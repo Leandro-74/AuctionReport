@@ -545,8 +545,17 @@ def importar_pdfs(
     code_to_law = {
         lot.codigo_bem: lot for lot in law_lots if lot.codigo_bem is not None
     }
+    codigos_bens: dict[str, list[Asset]] = {}
+    for bem in bens:
+        if bem.codigo:
+            codigos_bens.setdefault(bem.codigo, []).append(bem)
+    codigos_ambiguos = {
+        codigo for codigo, itens in codigos_bens.items() if len(itens) > 1
+    }
     bulk = _bulk_lots(law_lots)
     for bem in bens:
+        if bem.codigo in codigos_ambiguos:
+            continue
         law = code_to_law.get(bem.codigo)
         if law is not None:
             bem.lote = law.numero
@@ -562,10 +571,34 @@ def importar_pdfs(
         elif bem.categoria == "Hospitalar" and bulk.get("Hospitalar"):
             bem.lote = bulk["Hospitalar"].numero
 
+    for codigo in sorted(codigos_ambiguos & set(code_to_law)):
+        law = code_to_law[codigo]
+        origens = ", ".join(
+            sorted({bem.origem or "sem origem" for bem in codigos_bens[codigo]})
+        )
+        issues.append(
+            Issue(
+                "aviso",
+                f"O código {codigo} aparece em mais de um bem ({origens}); "
+                f"o lote {law.numero} não foi aplicado automaticamente. "
+                "Atribua o lote na edição.",
+            )
+        )
+
     # Lotes do projeto de lei que não vieram nos relatórios: cria uma linha
     # editável a partir da descrição do PL, para o relatório não ficar incompleto.
     for law in law_lots:
         if any(bem.lote == law.numero for bem in bens):
+            continue
+        if law.codigo_bem and law.codigo_bem in codigos_ambiguos:
+            issues.append(
+                Issue(
+                    "aviso",
+                    f"Lote {law.numero} (patrimônio {law.codigo_bem}) não foi "
+                    "associado automaticamente porque o código aparece em mais "
+                    "de um bem. Atribua o lote na edição.",
+                )
+            )
             continue
         grupo_padrao = (
             DEFAULT_GROUPS["Saúde"]
