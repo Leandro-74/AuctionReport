@@ -495,7 +495,7 @@ def _mover_bens(estado: Estado) -> None:
     lote_origem = Prompt.ask("Lote de origem (Enter = qualquer)", default="")
     categoria = Prompt.ask("Categoria (Enter = qualquer)", default="")
     origem = Prompt.ask("Origem (Enter = qualquer)", default="")
-    if not codigos and not texto and not categoria:
+    if not codigos and not texto and not categoria and not origem:
         _erro("Informe pelo menos um filtro para não mover todos os bens.")
         _pause()
         return
@@ -742,7 +742,7 @@ def _adicionar_remover(estado: Estado) -> None:
         lote = Prompt.ask("Lote (Enter = qualquer)", default="")
         categoria = Prompt.ask("Categoria (Enter = qualquer)", default="")
         origem = Prompt.ask("Origem (Enter = qualquer)", default="")
-        if not codigos and not texto and not lote and not categoria:
+        if not codigos and not texto and not lote and not categoria and not origem:
             _erro("Informe pelo menos um filtro.")
             _pause()
             return
