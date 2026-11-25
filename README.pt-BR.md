@@ -173,7 +173,8 @@ não mover tudo por acidente.
 
 Cada código de patrimônio identifica um bem dentro da sua origem. O mesmo código pode
 existir na Prefeitura e na Saúde, por exemplo o código `3500`. Quando um código aparece
-em mais de uma origem, a TUI pede a origem antes de editar ou mover.
+em mais de uma origem, a TUI pede a origem ao editar e oferece um filtro de origem ao
+mover ou remover bens.
 
 ### Editar lote
 

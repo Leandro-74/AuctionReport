@@ -171,7 +171,8 @@ every asset by accident.
 
 Each asset code identifies one asset inside its origin. The same code can exist in
 Prefeitura and in Saúde, for example code `3500`. When a code appears in more than
-one origin, the TUI asks for the origin before editing or moving.
+one origin, the TUI asks for the origin when editing and offers an origin filter when
+moving or removing assets.
 
 ### Edit lot
 
