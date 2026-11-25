@@ -6,6 +6,13 @@
 leilao_entrada*
 relatorio_leilao*
 
+# Bancos e pastas de leilão
+*.db
+*.db-wal
+*.db-shm
+*.db.tmp
+leiloes/
+
 # Python
 __pycache__/
 *.py[cod]
