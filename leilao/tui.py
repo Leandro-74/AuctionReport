@@ -38,6 +38,7 @@ from .edicao import (
     substituir_descricao,
 )
 from .atualizacao import planejar_atualizacao
+from .config import AGENCIA, MUNICIPIO
 from .banco import (
     BANCO_NOME,
     caminho_banco,
@@ -798,10 +799,10 @@ def _grupos(estado: Estado) -> None:
     elif opcao == "2":
         nome = Prompt.ask("Nome do grupo")
         aba = Prompt.ask("Nome da aba", default=f"Relatório Bens da {nome}")
-        titulo = Prompt.ask("Título", default="MUNICÍPIO DE EXEMPLO")
+        titulo = Prompt.ask("Título", default=MUNICIPIO)
         subtitulo = Prompt.ask("Subtítulo", default=nome)
         conta = Prompt.ask("Conta de depósito", default=f"Conta de depósito para lotes da {nome}")
-        agencia = Prompt.ask("Agência", default="0000-0 (Banco de Exemplo)")
+        agencia = Prompt.ask("Agência", default=AGENCIA)
         cc = Prompt.ask("Conta Corrente", default="")
         cnpj = Prompt.ask("CNPJ", default="")
         adicionar_grupo(

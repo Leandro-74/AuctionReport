@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from .config import AGENCIA, MUNICIPIO
 from .entrada import ler_entrada, normalize_lot, write_entrada
 from .models import Asset, Group, Lot, ReportData, norm
 from .money import parse_money
@@ -419,10 +420,10 @@ def adicionar_grupo(
     *,
     nome: str,
     aba: str = "",
-    titulo: str = "MUNICÍPIO DE EXEMPLO",
+    titulo: str = MUNICIPIO,
     subtitulo: str = "",
     conta: str = "",
-    agencia: str = "0000-0 (Banco de Exemplo)",
+    agencia: str = AGENCIA,
     conta_corrente: str = "",
     cnpj: str = "",
 ) -> Group:
@@ -435,10 +436,10 @@ def adicionar_grupo(
         nome=nome,
         aba=aba.strip() or f"Relatório Bens da {nome}",
         ordem=max((g.ordem for g in data.grupos), default=0) + 1,
-        titulo=titulo.strip() or "MUNICÍPIO DE EXEMPLO",
+        titulo=titulo.strip() or MUNICIPIO,
         subtitulo=subtitulo.strip() or nome,
         conta=conta.strip() or f"Conta de depósito para lotes da {nome}",
-        agencia=agencia.strip() or "0000-0 (Banco de Exemplo)",
+        agencia=agencia.strip() or AGENCIA,
         conta_corrente=conta_corrente.strip(),
         cnpj=cnpj.strip(),
     )

@@ -13,6 +13,14 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.properties import PageSetupProperties
 
+from .config import (
+    CNPJ_MUNICIPIO,
+    CNPJ_SAUDE,
+    MUNICIPIO as TITULO_MUNICIPIO,
+    TITULO_CONTA_MUNICIPIO,
+    TITULO_CONTA_SAUDE,
+    TITULO_SAUDE,
+)
 from .models import Asset, Group, Lot, LotResult, ReportData, norm
 from .money import format_brl
 
@@ -47,13 +55,6 @@ COLUNAS_AUX = ["Tipo de bem", "Código", "Conta Débito", "Descrição", "Valor"
 LARGURAS_AUX = [8.43, 8.43, 18.88, 47.63, 17.0]
 
 LARGURAS_CONTA = [14.38, 14.13, 54.63, 17.5]
-
-TITULO_MUNICIPIO = "MUNICÍPIO DE EXEMPLO"
-TITULO_SAUDE = "FUNDO MUNICIPAL DE SAÚDE"
-TITULO_CONTA_MUNICIPIO = "MUNICIPIO DE EXEMPLO: CONTAS PARA DEPÓSITO"
-TITULO_CONTA_SAUDE = "FUNDO MUNICIPAL DE SAUDE: CONTAS PARA DEPÓSITO"
-CNPJ_MUNICIPIO = "00.000.000/0001-00"
-CNPJ_SAUDE = "00.000.000/0001-01"
 
 MARGEM = 1 / 2.54  # 1 cm, igual ao modelo
 

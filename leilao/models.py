@@ -6,6 +6,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from .config import AGENCIA, MUNICIPIO
+
 
 def norm(text: str) -> str:
     """Maiúsculas sem acentos, para comparações por palavra-chave."""
@@ -64,10 +66,10 @@ class Group:
     nome: str
     aba: str
     ordem: int = 0
-    titulo: str = "MUNICÍPIO DE EXEMPLO"
+    titulo: str = MUNICIPIO
     subtitulo: str = ""
     conta: str = ""
-    agencia: str = "0000-0 (Banco de Exemplo)"
+    agencia: str = AGENCIA
     conta_corrente: str = ""
     cnpj: str = ""
     id: int | None = None

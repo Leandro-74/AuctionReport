@@ -15,6 +15,18 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
+from .config import (
+    AGENCIA,
+    CNPJ_MUNICIPIO,
+    CNPJ_SAUDE,
+    CONTA_CORRENTE_EDUCACAO,
+    CONTA_CORRENTE_PREFEITURA,
+    CONTA_CORRENTE_SAUDE,
+    MUNICIPIO,
+    SUBTITULO_EDUCACAO,
+    SUBTITULO_PREFEITURA,
+    SUBTITULO_SAUDE,
+)
 from .models import Asset, Group, Issue, LawLot, Lot, LotResult, ReportData, norm
 from .money import format_brl, parse_money, distribute
 from .pdfs import PdfError, parse_asset_report, parse_law
@@ -36,34 +48,34 @@ DEFAULT_GROUPS: dict[str, Group] = {
         nome="Prefeitura",
         aba="Relatório Bens da Prefeitura",
         ordem=1,
-        titulo="MUNICÍPIO DE EXEMPLO",
-        subtitulo="Prefeitura Municipal",
+        titulo=MUNICIPIO,
+        subtitulo=SUBTITULO_PREFEITURA,
         conta="Conta de depósito para lotes da Prefeitura",
-        agencia="0000-0 (Banco de Exemplo)",
-        conta_corrente="00000-0",
-        cnpj="00.000.000/0001-00",
+        agencia=AGENCIA,
+        conta_corrente=CONTA_CORRENTE_PREFEITURA,
+        cnpj=CNPJ_MUNICIPIO,
     ),
     "Educação": Group(
         nome="Educação",
         aba="Relatório Bens da Educação",
         ordem=2,
-        titulo="MUNICÍPIO DE EXEMPLO",
-        subtitulo="Secretaria de Educação",
+        titulo=MUNICIPIO,
+        subtitulo=SUBTITULO_EDUCACAO,
         conta="Conta de depósito para lotes da Secretaria de Educação",
-        agencia="0000-0 (Banco de Exemplo)",
-        conta_corrente="00000-1",
-        cnpj="00.000.000/0001-00",
+        agencia=AGENCIA,
+        conta_corrente=CONTA_CORRENTE_EDUCACAO,
+        cnpj=CNPJ_MUNICIPIO,
     ),
     "Saúde": Group(
         nome="Saúde",
         aba="Relatório Bens da Saúde",
         ordem=3,
-        titulo="MUNICÍPIO DE EXEMPLO",
-        subtitulo="Fundo Municipal de Saúde",
+        titulo=MUNICIPIO,
+        subtitulo=SUBTITULO_SAUDE,
         conta="Conta de depósito para lotes da Saúde",
-        agencia="0000-0 (Banco de Exemplo)",
-        conta_corrente="00000-2",
-        cnpj="00.000.000/0001-01",
+        agencia=AGENCIA,
+        conta_corrente=CONTA_CORRENTE_SAUDE,
+        cnpj=CNPJ_SAUDE,
     ),
 }
 
@@ -89,7 +101,7 @@ def group_for_source(source: str) -> Group:
         ordem=99,
         subtitulo=nome,
         conta=f"Conta de depósito para lotes da {nome}",
-        agencia="0000-0 (Banco de Exemplo)",
+        agencia=AGENCIA,
     )
 
 
@@ -739,13 +751,11 @@ def _read_grupos(ws) -> tuple[list[Group], list[Issue]]:
                 nome=nome,
                 aba=text_cell(row.get("aba")).strip() or f"Relatório Bens da {nome}",
                 ordem=ordem_int,
-                titulo=text_cell(row.get("titulo")).strip()
-                or "MUNICÍPIO DE EXEMPLO",
+                titulo=text_cell(row.get("titulo")).strip() or MUNICIPIO,
                 subtitulo=text_cell(row.get("subtitulo")).strip() or nome,
                 conta=text_cell(row.get("conta de deposito")).strip()
                 or f"Conta de depósito para lotes da {nome}",
-                agencia=text_cell(row.get("agencia")).strip()
-                or "0000-0 (Banco de Exemplo)",
+                agencia=text_cell(row.get("agencia")).strip() or AGENCIA,
                 conta_corrente=text_cell(row.get("conta corrente")).strip(),
                 cnpj=text_cell(row.get("cnpj")).strip(),
             )
