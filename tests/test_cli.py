@@ -67,8 +67,6 @@ class CliTests(unittest.TestCase):
         codigo, saida = self._rodar(
             "exportar",
             str(leilao),
-            "--formato",
-            "xlsx",
             "--saida",
             str(leilao / "exportacoes"),
             "--nome",

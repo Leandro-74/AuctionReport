@@ -373,7 +373,7 @@ def editar_dashboard(estado: Estado) -> None:
         _dashboard(estado)
         console.print(
             "[dim]As edições são salvas no banco do leilão. "
-            "Use 'Exportar' no menu principal para gerar XLSX ou PDF.[/]"
+            "Use 'Exportar' no menu principal para gerar o XLSX.[/]"
         )
         opcao = _menu(
             "Editar relatório",
@@ -1149,19 +1149,6 @@ def atualizar_leilao(estado: Estado) -> None:
     _pause()
 
 
-def _menu_exportacao() -> str | None:
-    opcao = _menu(
-        "Exportar leilão",
-        [
-            ("1", "XLSX", "Planilha para revisão"),
-            ("2", "PDF", "Arquivo para impressão"),
-            ("3", "XLSX + PDF", "Gerar os dois arquivos"),
-            ("0", "Cancelar", ""),
-        ],
-    )
-    return {"1": "xlsx", "2": "pdf", "3": "ambos"}.get(opcao)
-
-
 def exportar_leilao(estado: Estado) -> None:
     console.clear()
     _banner()
@@ -1193,11 +1180,6 @@ def exportar_leilao(estado: Estado) -> None:
             border_style="green",
         )
     )
-    formato = _menu_exportacao()
-    if formato is None:
-        console.print("[dim]Cancelado.[/]")
-        _pause()
-        return
     incluir_resumo = _confirm(
         "Incluir a aba extra de conferência (Resumo)?", default=False
     )
@@ -1206,12 +1188,11 @@ def exportar_leilao(estado: Estado) -> None:
     if not destino:
         destino = str(padrao)
 
-    with console.status("[cyan]Gerando os arquivos...[/]"):
+    with console.status("[cyan]Gerando o XLSX...[/]"):
         try:
-            resultado = exportar(
+            xlsx = exportar(
                 estado.data,
                 destino,
-                formato,
                 incluir_resumo=incluir_resumo,
             )
         except Exception as exc:
@@ -1219,24 +1200,18 @@ def exportar_leilao(estado: Estado) -> None:
             _pause()
             return
 
-    estado.ultima_exportacao = resultado.pdf or resultado.xlsx
-    linhas = []
-    if resultado.xlsx:
-        linhas.append(f"XLSX: {resultado.xlsx}")
-    if resultado.pdf:
-        linhas.append(f"PDF: {resultado.pdf}")
-    _sucesso("Arquivos gerados:\n" + "\n".join(linhas))
+    estado.ultima_exportacao = xlsx
+    _sucesso(f"XLSX gerado:\n{xlsx}")
 
     abas: list[str] = []
-    if resultado.xlsx:
-        try:
-            from openpyxl import load_workbook
+    try:
+        from openpyxl import load_workbook
 
-            wb_abas = load_workbook(resultado.xlsx, read_only=True)
-            abas = wb_abas.sheetnames
-            wb_abas.close()
-        except Exception:
-            abas = []
+        wb_abas = load_workbook(xlsx, read_only=True)
+        abas = wb_abas.sheetnames
+        wb_abas.close()
+    except Exception:
+        abas = []
     if abas:
         console.print(
             Panel(
@@ -1245,10 +1220,8 @@ def exportar_leilao(estado: Estado) -> None:
                 border_style="blue",
             )
         )
-    if resultado.xlsx and _confirm("Abrir o XLSX agora?", default=True):
-        _open_file(resultado.xlsx)
-    if resultado.pdf and _confirm("Abrir o PDF agora?", default=True):
-        _open_file(resultado.pdf)
+    if _confirm("Abrir o XLSX agora?", default=True):
+        _open_file(xlsx)
     _pause()
 
 
@@ -1292,7 +1265,7 @@ def main_tui() -> int:
                 ("2", "Abrir leilão", "Abrir um banco de leilão existente"),
                 ("3", "Editar leilão", "Editar bens, lotes, valores e descrições"),
                 ("4", "Atualizar com PDFs", "Comparar PDFs novos com o banco atual"),
-                ("5", "Exportar", "Gerar XLSX e/ou PDF para revisão e impressão"),
+                ("5", "Exportar", "Gerar o XLSX para revisão"),
                 ("6", "Conferir", "Validar somas e avisos"),
                 ("7", "Grupos e contas", "Editar dados bancários e abas"),
                 ("8", "Migrar planilha antiga", "Converter um .xlsx antigo em banco"),

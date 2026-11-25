@@ -18,7 +18,7 @@ from .banco import (
     salvar_leilao,
 )
 from .entrada import importar_pdfs, ler_entrada, modelo_entrada, write_entrada
-from .exportacao import FORMATOS, exportar
+from .exportacao import exportar
 from .models import Issue, ReportData, norm
 from .money import format_brl
 from .relatorio import gerar_relatorio
@@ -281,10 +281,9 @@ def _cmd_exportar(args: argparse.Namespace) -> int:
         else db_path.parent / "exportacoes"
     )
     try:
-        resultado = exportar(
+        xlsx = exportar(
             data,
             pasta,
-            args.formato,
             nome_base=args.nome,
             incluir_resumo=args.com_resumo,
         )
@@ -292,10 +291,7 @@ def _cmd_exportar(args: argparse.Namespace) -> int:
         print(f"ERRO: {exc}")
         return 1
 
-    if resultado.xlsx:
-        print(f"\nXLSX gerado: {resultado.xlsx.resolve()}")
-    if resultado.pdf:
-        print(f"PDF gerado: {resultado.pdf.resolve()}")
+    print(f"\nXLSX gerado: {xlsx.resolve()}")
     return 0
 
 
@@ -355,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
     _utf8()
     parser = argparse.ArgumentParser(
         prog="python -m leilao",
-        description="AuctionReport: relatórios de bens de leilão em Excel e PDF.",
+        description="AuctionReport: relatórios de bens de leilão em Excel.",
     )
     sub = parser.add_subparsers(dest="comando")
 
@@ -396,17 +392,11 @@ def main(argv: list[str] | None = None) -> int:
     p_mig.set_defaults(func=_cmd_migrar)
 
     p_exp = sub.add_parser(
-        "exportar", help="gera o XLSX e/ou o PDF a partir do banco"
+        "exportar", help="gera o XLSX a partir do banco"
     )
     p_exp.add_argument("banco", nargs="?", default=BANCO_NOME)
-    p_exp.add_argument(
-        "--formato",
-        choices=FORMATOS,
-        default="xlsx",
-        help="formato de saída (padrão: xlsx)",
-    )
     p_exp.add_argument("--saida", help="pasta de exportação")
-    p_exp.add_argument("--nome", help="nome base dos arquivos")
+    p_exp.add_argument("--nome", help="nome base do arquivo")
     p_exp.add_argument(
         "--com-resumo",
         action="store_true",
