@@ -938,20 +938,20 @@ def novo_leilao(estado: Estado) -> None:
             _pause()
             return
 
-        documentos = list(relatorios)
-        if pl:
-            documentos.append(("Projeto de Lei", pl))
-        try:
-            copiar_documentos(caminho_banco(pasta), documentos)
-        except Exception as exc:
-            console.print(
-                Panel(
-                    f"O leilão foi criado, mas os PDFs não puderam ser "
-                    f"copiados: {exc}",
-                    title="[bold yellow]Aviso[/]",
-                    border_style="yellow",
-                )
+    documentos = list(relatorios)
+    if pl:
+        documentos.append(("Projeto de Lei", pl))
+    try:
+        copiar_documentos(caminho_banco(pasta), documentos)
+    except Exception as exc:
+        console.print(
+            Panel(
+                f"O leilão foi criado, mas os PDFs não puderam ser "
+                f"copiados: {exc}",
+                title="[bold yellow]Aviso[/]",
+                border_style="yellow",
             )
+        )
 
     estado.leilao = pasta
     estado.banco = caminho_banco(pasta)
