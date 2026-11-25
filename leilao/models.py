@@ -28,6 +28,7 @@ class Asset:
     lote: str = ""
     observacao: str = ""
     row: int = 0  # ordem original no arquivo de entrada
+    id: int | None = None  # chave interna quando o leilão vem do banco
 
     @property
     def incluido(self) -> bool:
@@ -46,6 +47,7 @@ class Lot:
     descricao_pl: str = ""
     observacao: str = ""
     row: int = 0
+    id: int | None = None
 
     @property
     def numero_int(self) -> int:
@@ -68,6 +70,7 @@ class Group:
     agencia: str = "0000-0 (Banco de Exemplo)"
     conta_corrente: str = ""
     cnpj: str = ""
+    id: int | None = None
 
 
 @dataclass
