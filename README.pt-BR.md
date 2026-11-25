@@ -1,7 +1,7 @@
 <h1 align="center">AuctionReport</h1>
 
 <p align="center">
-  Monta relatórios em Excel e PDF dos bens de leilão do município a partir de PDFs e do projeto de lei.
+  Monta relatórios em Excel dos bens de leilão do município a partir de PDFs e do projeto de lei.
 </p>
 
 <p align="center">
@@ -16,8 +16,8 @@ leilão do município brasileiro. Ela lê os PDFs exportados pelo sistema BIRT
 guarda o leilão em um banco SQLite.
 
 Cada leilão fica em uma pasta própria, com os PDFs de origem e os arquivos gerados.
-Os dados são editados em uma interface TUI no terminal. Os arquivos finais são gerados
-quando necessário: XLSX para revisão e PDF para impressão.
+Os dados são editados em uma interface TUI no terminal. O XLSX final é gerado quando
+necessário. Abra-o para revisar e exporte para PDF manualmente se precisar.
 
 ## Funcionalidades
 
@@ -39,7 +39,7 @@ quando necessário: XLSX para revisão e PDF para impressão.
   - editar grupos, contas bancárias, agência e CNPJ.
 - Rateia o valor de cada lote entre os bens, com no máximo **duas casas decimais**.
 - Coloca a diferença no **último bem** do lote, de forma que a soma feche exatamente.
-- Exporta o relatório final em **XLSX**, **PDF** ou os dois.
+- Exporta o relatório final em **XLSX**.
 - Migra uma planilha de entrada antiga (`.xlsx`) para o novo formato de banco.
 - Opcionalmente gera uma aba extra `Resumo` para conferência lote a lote.
 
@@ -47,14 +47,8 @@ quando necessário: XLSX para revisão e PDF para impressão.
 
 - Python 3.10 ou superior.
 - Windows ou Linux.
-- O LibreOffice é opcional. Ele é necessário apenas para exportar PDF.
 
 ### Nota para Linux
-
-A exportação em PDF precisa do LibreOffice:
-
-- Arch Linux: `sudo pacman -S libreoffice-fresh`
-- Debian/Ubuntu: `sudo apt install libreoffice`
 
 No Arch Linux, o `pip install` é bloqueado fora de um ambiente virtual. O script
 `instalar.sh` cria a pasta `.venv` e instala as dependências nela.
@@ -108,7 +102,7 @@ A TUI abre com o menu principal:
 2. **Abrir leilão** — abre um `leilao.db` existente.
 3. **Editar leilão** — edita bens, lotes, valores e descrições.
 4. **Atualizar com PDFs** — compara PDFs novos com o leilão atual.
-5. **Exportar** — gera XLSX, PDF ou os dois.
+5. **Exportar** — gera o relatório em XLSX.
 6. **Conferir** — mostra os totais e os avisos sem gerar arquivos.
 7. **Grupos e contas** — edita os dados bancários e as abas.
 8. **Migrar planilha antiga** — converte uma planilha de entrada antiga em banco.
@@ -138,12 +132,11 @@ leiloes/
       projeto_de_lei.pdf
     exportacoes/
       2026-11-25_1430_relatorio.xlsx
-      2026-11-25_1430_relatorio.pdf
 ```
 
 - `leilao.db` é a fonte da verdade.
 - `documentos/` guarda os PDFs de origem.
-- `exportacoes/` recebe os arquivos XLSX e PDF gerados.
+- `exportacoes/` recebe os arquivos XLSX gerados.
 
 Para fazer backup de um leilão, copie a pasta inteira. Para arquivar, mova a pasta.
 Não é preciso servidor: o SQLite é um único arquivo e já vem com o Python.
@@ -240,8 +233,8 @@ lote antes de gerar o arquivo.
 
 ## Relatório gerado
 
-O XLSX e o PDF contêm o mesmo relatório. O XLSX serve para revisão e o PDF para
-impressão.
+O XLSX serve para revisão. Para imprimir ou compartilhar um PDF, abra o XLSX no Excel
+ou no LibreOffice e exporte manualmente.
 
 Aparência reproduzida do modelo:
 
@@ -267,10 +260,6 @@ As abas auxiliares são criadas automaticamente conforme os dados:
 
 A aba `Resumo` é opcional e pode ser incluída na exportação.
 
-A exportação em PDF converte o XLSX gerado com o LibreOffice. Se o LibreOffice não
-estiver instalado, o XLSX é preservado e o programa mostra um erro explicando como
-instalar.
-
 ## Linha de comando
 
 A TUI é o fluxo recomendado, mas os comandos continuam disponíveis para automação.
@@ -282,11 +271,9 @@ python -m leilao novo --prefeitura "Report_prefeitura.pdf" --saude "Report_saúd
 
 python -m leilao conferir leiloes/2026-2/leilao.db
 
-python -m leilao exportar leiloes/2026-2/leilao.db --formato xlsx
+python -m leilao exportar leiloes/2026-2/leilao.db
 
-python -m leilao exportar leiloes/2026-2/leilao.db --formato pdf
-
-python -m leilao exportar leiloes/2026-2/leilao.db --formato ambos --com-resumo
+python -m leilao exportar leiloes/2026-2/leilao.db --com-resumo
 
 python -m leilao atualizar leiloes/2026-2/leilao.db --prefeitura "Report_prefeitura_novo.pdf"
 
@@ -302,7 +289,7 @@ No Linux, use `./iniciar.sh` antes dos mesmos argumentos, ou o ambiente virtual:
 ```bash
 ./iniciar.sh novo --prefeitura "Report_prefeitura.pdf" --pl "Projeto de Lei.pdf" --pasta leiloes/2026-2
 .venv/bin/python -m leilao conferir leiloes/2026-2/leilao.db
-.venv/bin/python -m leilao exportar leiloes/2026-2/leilao.db --formato xlsx
+.venv/bin/python -m leilao exportar leiloes/2026-2/leilao.db
 ```
 
 Os comandos antigos de XLSX continuam disponíveis para arquivos legados:
@@ -412,13 +399,12 @@ Os testes incluem:
 - movimentação de bens por faixa de código e filtro por origem;
 - persistência em SQLite, atualizações, remoções e migração de planilha antiga;
 - reconciliação de PDFs novos com um leilão existente;
-- fluxo de exportação XLSX e PDF;
+- fluxo de exportação XLSX;
 - conferência de que todas as somas fecham.
 
 > Os PDFs e as planilhas do município **não são versionados** no repositório.
 > Para rodar os testes de integração, coloque os arquivos de exemplo na raiz do
-> projeto. Sem eles, esses testes são ignorados automaticamente. O teste de conversão
-> real em PDF também é ignorado quando o LibreOffice não está instalado.
+> projeto. Sem eles, esses testes são ignorados automaticamente.
 
 ## Estrutura do projeto
 
@@ -433,8 +419,7 @@ AuctionReport/
     entrada.py      suporte à planilha de entrada antiga e validação
     edicao.py       movimentação e edição de bens/lotes/grupos
     relatorio.py    geração do Excel no formato do modelo
-    exportacao.py   fluxo de exportação XLSX e PDF
-    pdf_export.py   conversão com LibreOffice
+    exportacao.py   fluxo de exportação XLSX
     tui.py          interface TUI e entrada de caminhos
     cli.py          linha de comando
   tests/
@@ -445,7 +430,6 @@ AuctionReport/
     test_banco.py
     test_atualizacao.py
     test_exportacao.py
-    test_pdf_export.py
     test_cli.py
     test_importacao.py
     test_integracao.py
@@ -462,10 +446,6 @@ AuctionReport/
   `instalar.bat` no Windows.
 - **Não consigo salvar o leilão**: feche outros programas que possam estar usando o
   `leilao.db` e tente novamente.
-- **A exportação em PDF falha**: instale o LibreOffice
-  (`sudo pacman -S libreoffice-fresh` no Arch) e exporte de novo. O XLSX é preservado
-  se a conversão falhar. Se o LibreOffice estiver em outro local, defina
-  `SOFFICE_PATH` com o caminho do executável `soffice`.
 - **Os testes de integração são ignorados**: faltam os PDFs e as planilhas de exemplo
   na raiz do projeto.
 - **`Permission denied` ao rodar um script**: use `bash instalar.sh` ou execute

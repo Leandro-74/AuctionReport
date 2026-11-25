@@ -1,7 +1,7 @@
 <h1 align="center">AuctionReport</h1>
 
 <p align="center">
-  Builds Excel and PDF reports for auctioned municipal assets from PDF reports and a bill of law.
+  Builds Excel reports for auctioned municipal assets from PDF reports and a bill of law.
 </p>
 
 <p align="center">
@@ -16,8 +16,8 @@ the BIRT system (Prefeitura, Saúde and, when available, Educação), reads the 
 law that defines the lots, and stores the auction in a SQLite database.
 
 Each auction lives in its own folder, with the source PDFs and the generated files.
-Data is edited in a terminal UI (TUI). The final files are generated on demand: XLSX
-for review and PDF for printing.
+Data is edited in a terminal UI (TUI). The final XLSX is generated on demand. Open it
+to review, then export to PDF manually if needed.
 
 ## Features
 
@@ -37,7 +37,7 @@ for review and PDF for printing.
   - edit groups, bank accounts, branch and CNPJ.
 - Split each lot's value among its assets with at most **two decimal places**.
 - Put the remainder on the **last asset** of the lot, so the sum matches exactly.
-- Export the final report as **XLSX**, **PDF** or both.
+- Export the final report as **XLSX**.
 - Migrate an old input workbook (`.xlsx`) to the new database format.
 - Optionally generate an extra `Resumo` sheet for lot-by-lot checking.
 
@@ -45,14 +45,8 @@ for review and PDF for printing.
 
 - Python 3.10 or higher.
 - Windows or Linux.
-- LibreOffice is optional. It is required only to export PDF.
 
 ### Note for Linux
-
-PDF export needs LibreOffice:
-
-- Arch Linux: `sudo pacman -S libreoffice-fresh`
-- Debian/Ubuntu: `sudo apt install libreoffice`
 
 On Arch Linux, `pip install` is blocked outside a virtual environment. The
 `instalar.sh` script creates a `.venv` folder and installs the dependencies there.
@@ -106,7 +100,7 @@ The TUI opens the main menu:
 2. **Abrir leilão** — opens an existing `leilao.db`.
 3. **Editar leilão** — edits assets, lots, values and descriptions.
 4. **Atualizar com PDFs** — compares new PDFs with the current auction.
-5. **Exportar** — generates XLSX, PDF or both.
+5. **Exportar** — generates the XLSX report.
 6. **Conferir** — shows totals and warnings without generating files.
 7. **Grupos e contas** — edits bank data and sheets.
 8. **Migrar planilha antiga** — converts an old input workbook into a database.
@@ -136,12 +130,11 @@ leiloes/
       projeto_de_lei.pdf
     exportacoes/
       2026-11-25_1430_relatorio.xlsx
-      2026-11-25_1430_relatorio.pdf
 ```
 
 - `leilao.db` is the source of truth.
 - `documentos/` keeps the source PDFs.
-- `exportacoes/` receives the generated XLSX and PDF files.
+- `exportacoes/` receives the generated XLSX files.
 
 To back up an auction, copy the whole folder. To archive an auction, move the folder.
 No server is needed: SQLite is a single file and comes with Python.
@@ -238,8 +231,8 @@ generating the file.
 
 ## Generated report
 
-The XLSX and PDF contain the same report. The XLSX is intended for review, and the
-PDF for printing.
+The XLSX is intended for review. To print or share a PDF, open the XLSX in Excel or
+LibreOffice and export it manually.
 
 The template layout is reproduced with:
 
@@ -267,10 +260,6 @@ Auxiliary sheets are created automatically from the data:
 
 The `Resumo` sheet is optional and can be included when exporting.
 
-PDF export converts the generated XLSX with LibreOffice. If LibreOffice is not
-installed, the XLSX is preserved and the program shows an error explaining how to
-install it.
-
 ## Command line
 
 The TUI is the recommended flow, but the commands remain available for automation.
@@ -282,11 +271,9 @@ python -m leilao novo --prefeitura "Report_prefeitura.pdf" --saude "Report_saúd
 
 python -m leilao conferir leiloes/2026-2/leilao.db
 
-python -m leilao exportar leiloes/2026-2/leilao.db --formato xlsx
+python -m leilao exportar leiloes/2026-2/leilao.db
 
-python -m leilao exportar leiloes/2026-2/leilao.db --formato pdf
-
-python -m leilao exportar leiloes/2026-2/leilao.db --formato ambos --com-resumo
+python -m leilao exportar leiloes/2026-2/leilao.db --com-resumo
 
 python -m leilao atualizar leiloes/2026-2/leilao.db --prefeitura "Report_prefeitura_novo.pdf"
 
@@ -302,7 +289,7 @@ On Linux, use `./iniciar.sh` before the same arguments, or the virtual environme
 ```bash
 ./iniciar.sh novo --prefeitura "Report_prefeitura.pdf" --pl "Projeto de Lei.pdf" --pasta leiloes/2026-2
 .venv/bin/python -m leilao conferir leiloes/2026-2/leilao.db
-.venv/bin/python -m leilao exportar leiloes/2026-2/leilao.db --formato xlsx
+.venv/bin/python -m leilao exportar leiloes/2026-2/leilao.db
 ```
 
 The old XLSX commands are still available for legacy files:
@@ -412,13 +399,12 @@ The tests include:
 - moving assets by code range and filtering by origin;
 - SQLite persistence, updates, removals and legacy workbook migration;
 - reconciliation of new PDFs with an existing auction;
-- XLSX and PDF export workflow;
+- XLSX export workflow;
 - checking that every sum matches.
 
 > The municipality PDFs and workbooks are **not versioned** in the repository. To
 > run the integration tests, put the sample files in the project root. Without them,
-> those tests are skipped automatically. The real PDF conversion test also skips
-> when LibreOffice is not installed.
+> those tests are skipped automatically.
 
 ## Project structure
 
@@ -433,8 +419,7 @@ AuctionReport/
     entrada.py      legacy input workbook support and validation
     edicao.py       asset, lot and group editing
     relatorio.py    final Excel generation in the template layout
-    exportacao.py   XLSX and PDF export workflow
-    pdf_export.py   LibreOffice conversion
+    exportacao.py   XLSX export workflow
     tui.py          TUI and path input
     cli.py          command line
   tests/
@@ -445,7 +430,6 @@ AuctionReport/
     test_banco.py
     test_atualizacao.py
     test_exportacao.py
-    test_pdf_export.py
     test_cli.py
     test_importacao.py
     test_integracao.py
@@ -462,10 +446,6 @@ AuctionReport/
   `./instalar.sh` on Linux or `instalar.bat` on Windows.
 - **Cannot save the auction**: close other programs that may be using `leilao.db`
   and try again.
-- **PDF export fails**: install LibreOffice (`sudo pacman -S libreoffice-fresh` on
-  Arch) and run the export again. The XLSX is preserved if the conversion fails. If
-  LibreOffice is installed in a custom location, set `SOFFICE_PATH` to the
-  `soffice` executable.
 - **Integration tests are skipped**: the sample PDFs and workbooks are missing from
   the project root.
 - **`Permission denied` when running a script**: use `bash instalar.sh` or run
