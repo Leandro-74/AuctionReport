@@ -878,7 +878,7 @@ def _read_bens(ws) -> tuple[list[Asset], list[Issue]]:
     return bens, issues
 
 
-def _build_results(data: ReportData) -> None:
+def build_results(data: ReportData) -> None:
     grupos = {norm(g.nome): g for g in data.grupos}
     lotes = {lote.numero: lote for lote in data.lotes}
     por_lote: dict[str, list[Asset]] = {lote.numero: [] for lote in data.lotes}
@@ -1040,7 +1040,7 @@ def ler_entrada(path: str | Path) -> ReportData:
         data.lotes = lotes
         data.bens = bens
         data.issues.extend(issues_grupos + issues_lotes + issues_bens)
-        _build_results(data)
+        build_results(data)
         return data
     finally:
         wb.close()
