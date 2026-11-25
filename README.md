@@ -468,7 +468,9 @@ AuctionReport/
 - **Cannot save the auction**: close other programs that may be using `leilao.db`
   and try again.
 - **PDF export fails**: install LibreOffice (`sudo pacman -S libreoffice-fresh` on
-  Arch) and run the export again. The XLSX is preserved if the conversion fails.
+  Arch) and run the export again. The XLSX is preserved if the conversion fails. If
+  LibreOffice is installed in a custom location, set `SOFFICE_PATH` to the
+  `soffice` executable.
 - **Integration tests are skipped**: the sample PDFs and workbooks are missing from
   the project root.
 - **`Permission denied` when running a script**: use `bash instalar.sh` or run

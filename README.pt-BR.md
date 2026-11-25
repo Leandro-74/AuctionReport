@@ -469,7 +469,8 @@ AuctionReport/
   `leilao.db` e tente novamente.
 - **A exportação em PDF falha**: instale o LibreOffice
   (`sudo pacman -S libreoffice-fresh` no Arch) e exporte de novo. O XLSX é preservado
-  se a conversão falhar.
+  se a conversão falhar. Se o LibreOffice estiver em outro local, defina
+  `SOFFICE_PATH` com o caminho do executável `soffice`.
 - **Os testes de integração são ignorados**: faltam os PDFs e as planilhas de exemplo
   na raiz do projeto.
 - **`Permission denied` ao rodar um script**: use `bash instalar.sh` ou execute
