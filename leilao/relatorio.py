@@ -795,6 +795,8 @@ def gerar_relatorio(
     if data.erros:
         linhas = "\n".join(f"- {issue}" for issue in data.erros)
         raise ValueError(f"Corrija os erros antes de gerar o relatório:\n{linhas}")
+    if not data.resultados:
+        raise ValueError("O leilão não tem lotes com bens para exportar.")
 
     path = Path(path)
     wb = Workbook()

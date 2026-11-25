@@ -80,6 +80,18 @@ class ExportacaoTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             exportar(_data(), self.destino, "odt")
 
+    def test_nao_exporta_leilao_vazio(self):
+        data = ReportData(
+            grupos=[copy.deepcopy(DEFAULT_GROUPS["Prefeitura"])],
+            lotes=[],
+            bens=[],
+        )
+        build_results(data)
+        with self.assertRaises(ValueError) as ctx:
+            exportar(data, self.destino, "xlsx", nome_base="vazio")
+        self.assertIn("não tem lotes", str(ctx.exception))
+        self.assertFalse((self.destino / "vazio.xlsx").exists())
+
     def test_nome_repetido_recebe_sufixo(self):
         primeiro = exportar(_data(), self.destino, "xlsx", nome_base="teste")
         segundo = exportar(_data(), self.destino, "xlsx", nome_base="teste")
