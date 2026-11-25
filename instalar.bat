@@ -15,6 +15,5 @@ if errorlevel 1 (
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 echo.
-echo Para exportar PDF, instale o LibreOffice: https://www.libreoffice.org/
 echo Pronto! Agora use o iniciar.bat.
 pause

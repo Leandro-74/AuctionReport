@@ -23,12 +23,5 @@ fi
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements.txt
 
-if ! command -v soffice >/dev/null 2>&1 && ! command -v libreoffice >/dev/null 2>&1; then
-    echo
-    echo "Aviso: LibreOffice não encontrado. A exportação em PDF ficará"
-    echo "indisponível até que ele seja instalado."
-    echo "No Arch Linux, instale com: sudo pacman -S libreoffice-fresh"
-fi
-
 echo
 echo "Pronto! Use: ./iniciar.sh"
