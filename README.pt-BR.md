@@ -1,7 +1,7 @@
 <h1 align="center">AuctionReport</h1>
 
 <p align="center">
-  Monta relatórios em Excel dos bens de leilão do município a partir de PDFs e do projeto de lei.
+  Monta relatórios em Excel e PDF dos bens de leilão do município a partir de PDFs e do projeto de lei.
 </p>
 
 <p align="center">
@@ -13,11 +13,11 @@
 O AuctionReport é uma ferramenta local em Python que monta os relatórios de bens de
 leilão do município brasileiro. Ela lê os PDFs exportados pelo sistema BIRT
 (Prefeitura, Saúde e, se houver, Educação), lê o projeto de lei que define os lotes e
-cria uma planilha de entrada editável. Depois da conferência, gera o Excel final com a
-aparência do modelo oficial.
+guarda o leilão em um banco SQLite.
 
-A ferramenta funciona como interface TUI no terminal ou como programa de linha de
-comando. Todo o processamento acontece no computador local.
+Cada leilão fica em uma pasta própria, com os PDFs de origem e os arquivos gerados.
+Os dados são editados em uma interface TUI no terminal. Os arquivos finais são gerados
+quando necessário: XLSX para revisão e PDF para impressão.
 
 ## Funcionalidades
 
@@ -25,23 +25,20 @@ comando. Todo o processamento acontece no computador local.
   houver, da Educação.
 - Lê o **Projeto de Lei** e identifica os lotes, os patrimônios citados e os valores
   avaliados.
-- Cria uma planilha de entrada editável com todos os bens e uma sugestão de lote.
-- Permite editar os dados pela própria TUI:
-  - mover bens por **código, faixa de códigos ou texto da descrição** para outro lote;
+- Cria uma **pasta e um banco SQLite** para cada leilão.
+- Copia os PDFs de origem para a pasta do leilão.
+- Permite editar os dados pela TUI:
+  - mover bens por **código, faixa de códigos, texto da descrição, origem ou
+    categoria** para outro lote;
   - alterar o valor, o grupo e a seção de um lote;
-  - alterar descrição, contas, código e lote de um bem;
+  - alterar descrição, contas, código, origem e lote de um bem;
   - substituir um trecho da descrição em vários bens;
   - adicionar/remover lotes e bens;
   - editar grupos, contas bancárias, agência e CNPJ.
 - Rateia o valor de cada lote entre os bens, com no máximo **duas casas decimais**.
 - Coloca a diferença no **último bem** do lote, de forma que a soma feche exatamente.
-- Gera o relatório final com a **aparência do modelo** da prefeitura:
-  - abas principais por secretaria/grupo;
-  - abas auxiliares por categoria (`Todos os Veículos`, `Veículos`,
-    `Veículos Hospital`, `Mobiliário em Geral`, `Mobiliário em Geral H`,
-    `Itens de Informática`);
-  - abas de contas para depósito (`Conta Município`,
-    `Conta Fundo Municipal de Saude`).
+- Exporta o relatório final em **XLSX**, **PDF** ou os dois.
+- Migra uma planilha de entrada antiga (`.xlsx`) para o novo formato de banco.
 - Opcionalmente gera uma aba extra `Resumo` para conferência lote a lote.
 
 ## Requisitos
@@ -49,7 +46,8 @@ comando. Todo o processamento acontece no computador local.
 - Python 3.10 ou superior.
 - Windows ou Linux.
 - O `tkinter` é opcional. Ele ativa o seletor gráfico de arquivos. Sem ele, a TUI
-  pede o caminho dos arquivos.
+  pede o caminho dos arquivos e das pastas.
+- O LibreOffice é opcional. Ele é necessário apenas para exportar PDF.
 
 ### Nota para Linux
 
@@ -57,6 +55,11 @@ O seletor gráfico de arquivos precisa do pacote `tk`:
 
 - Arch Linux: `sudo pacman -S tk`
 - Debian/Ubuntu: `sudo apt install python3-tk`
+
+A exportação em PDF precisa do LibreOffice:
+
+- Arch Linux: `sudo pacman -S libreoffice-fresh`
+- Debian/Ubuntu: `sudo apt install libreoffice`
 
 No Arch Linux, o `pip install` é bloqueado fora de um ambiente virtual. O script
 `instalar.sh` cria a pasta `.venv` e instala as dependências nela.
@@ -106,25 +109,48 @@ Ou use o ambiente virtual diretamente:
 
 A TUI abre com o menu principal:
 
-1. **Novo leilão** — abre o seletor gráfico de arquivos e cria a planilha de entrada.
-2. **Abrir/editar** — carrega uma planilha de entrada e abre o menu de edição.
-3. **Gerar relatório** — valida e gera o Excel no formato do modelo.
-4. **Conferir** — mostra os totais e os avisos sem gerar arquivo.
-5. **Grupos e contas** — edita os dados bancários e as abas.
-6. **Modelo vazio** — cria uma planilha de entrada em branco.
+1. **Novo leilão** — lê os PDFs e cria a pasta e o banco do leilão.
+2. **Abrir leilão** — abre um `leilao.db` existente.
+3. **Editar leilão** — edita bens, lotes, valores e descrições.
+4. **Exportar** — gera XLSX, PDF ou os dois.
+5. **Conferir** — mostra os totais e os avisos sem gerar arquivos.
+6. **Grupos e contas** — edita os dados bancários e as abas.
+7. **Migrar planilha antiga** — converte uma planilha de entrada antiga em banco.
+8. **Novo leilão vazio** — cria um leilão em branco com os grupos padrão.
 
-Depois de importar, o programa já abre o painel de edição, mostrando:
+Depois de abrir um leilão, o painel de edição mostra:
 
 - totais por grupo;
 - lote a lote: valor, soma dos bens e status;
 - avisos e erros.
 
-Se o seletor gráfico não estiver disponível, a TUI pede o caminho diretamente. Pressione
-Enter para pular um arquivo opcional.
+## Pasta do leilão
+
+Cada leilão é uma pasta:
+
+```text
+leiloes/
+  2026-2/
+    leilao.db
+    documentos/
+      Report_prefeitura.pdf
+      Report_saude.pdf
+      projeto_de_lei.pdf
+    exportacoes/
+      2026-11-25_1430_relatorio.xlsx
+      2026-11-25_1430_relatorio.pdf
+```
+
+- `leilao.db` é a fonte da verdade.
+- `documentos/` guarda os PDFs de origem.
+- `exportacoes/` recebe os arquivos XLSX e PDF gerados.
+
+Para fazer backup de um leilão, copie a pasta inteira. Para arquivar, mova a pasta.
+Não é preciso servidor: o SQLite é um único arquivo e já vem com o Python.
 
 ## Edição por código
 
-No menu **Abrir/editar**, as opções principais são:
+No menu **Editar leilão**, as opções principais são:
 
 ### Mover bens
 
@@ -137,10 +163,17 @@ Exemplos de seleção:
 | `300..400` | O mesmo que `300-400` |
 | texto `MESA` | Bens cuja descrição contém `MESA` |
 | lote `08` + faixa `300-400` | Somente os códigos 300–400 que estão no lote 08 |
+| origem `Saúde` | Somente os bens da Saúde |
 
 Antes de aplicar, a TUI mostra uma prévia com a quantidade e os bens encontrados e
 pede confirmação. Se nenhum filtro for informado, a movimentação é bloqueada para
 não mover tudo por acidente.
+
+### Mesmo código em origens diferentes
+
+Cada código de patrimônio identifica um bem dentro da sua origem. O mesmo código pode
+existir na Prefeitura e na Saúde, por exemplo o código `3500`. Quando um código aparece
+em mais de uma origem, a TUI pede a origem antes de editar ou mover.
 
 ### Editar lote
 
@@ -148,25 +181,20 @@ Permite alterar o valor da venda, o grupo (aba) e a seção (título) do lote.
 
 ### Editar bem
 
-Permite alterar descrição, código, lote, tipo, categoria, Conta Crédito, Conta Débito,
-valor contábil e observação. Enter mantém o valor atual.
+Permite alterar descrição, código, origem, lote, tipo, categoria, Conta Crédito, Conta
+Débito, valor contábil e observação. Enter mantém o valor atual.
 
 ### Substituir texto
 
-Troca um trecho da descrição em vários bens, opcionalmente filtrado por lote ou
-categoria. Também mostra uma prévia antes de aplicar.
+Troca um trecho da descrição em vários bens, opcionalmente filtrado por lote, categoria
+ou origem. Também mostra uma prévia antes de aplicar.
 
 ### Adicionar/remover
 
 Permite criar lotes e bens, remover lotes vazios e excluir bens por código, faixa,
-texto, lote ou categoria.
+texto, lote, categoria ou origem.
 
-As alterações são salvas automaticamente na planilha de entrada. A versão anterior é
-preservada como `leilao_entrada.backup.xlsx`.
-
-> A edição é feita na **planilha de entrada**, que é a fonte dos dados. Depois de
-> editar, use **Gerar relatório** para atualizar o Excel final. Edições feitas
-> manualmente no relatório final não voltam para a planilha de entrada.
+As alterações são salvas automaticamente no banco SQLite.
 
 ## Como o valor é dividido
 
@@ -186,8 +214,8 @@ lote antes de gerar o arquivo.
 
 ## Relatório gerado
 
-O padrão é gerar somente as abas do modelo. A aba `Resumo` é opcional e pode ser
-incluída na hora de gerar.
+O XLSX e o PDF contêm o mesmo relatório. O XLSX serve para revisão e o PDF para
+impressão.
 
 Aparência reproduzida do modelo:
 
@@ -211,10 +239,11 @@ As abas auxiliares são criadas automaticamente conforme os dados:
 - `Relatório Itens de Informática` — informática municipal;
 - `Relatório Outros Bens` — outras categorias municipais, se houver.
 
-> O modelo original tinha pequenas diferenças de preenchimento entre as abas
-> auxiliares (algumas com fundo cinza mais escuro e linhas zebradas). A ferramenta
-> uniformiza essas abas no mesmo padrão das abas principais, mantendo títulos,
-> colunas, fontes, bordas, larguras e margens do modelo.
+A aba `Resumo` é opcional e pode ser incluída na exportação.
+
+A exportação em PDF converte o XLSX gerado com o LibreOffice. Se o LibreOffice não
+estiver instalado, o XLSX é preservado e o programa mostra um erro explicando como
+instalar.
 
 ## Linha de comando
 
@@ -223,32 +252,63 @@ A TUI é o fluxo recomendado, mas os comandos continuam disponíveis para automa
 No Windows:
 
 ```powershell
-python -m leilao importar --prefeitura "Report_prefeitura.pdf" --saude "Report_saúde.pdf" --pl "Projeto de Lei.pdf" -o leilao_entrada.xlsx
+python -m leilao novo --prefeitura "Report_prefeitura.pdf" --saude "Report_saúde.pdf" --pl "Projeto de Lei.pdf" --pasta leiloes/2026-2
 
-python -m leilao conferir leilao_entrada.xlsx
+python -m leilao conferir leiloes/2026-2/leilao.db
 
-python -m leilao gerar leilao_entrada.xlsx -o relatorio_leilao.xlsx
+python -m leilao exportar leiloes/2026-2/leilao.db --formato xlsx
 
-python -m leilao gerar leilao_entrada.xlsx -o relatorio_leilao.xlsx --com-resumo
+python -m leilao exportar leiloes/2026-2/leilao.db --formato pdf
 
-python -m leilao modelo -o modelo_leilao.xlsx
+python -m leilao exportar leiloes/2026-2/leilao.db --formato ambos --com-resumo
+
+python -m leilao migrar leilao_entrada.xlsx --pasta leiloes/2025-2
 ```
 
 No Linux, use `./iniciar.sh` antes dos mesmos argumentos, ou o ambiente virtual:
 
 ```bash
-./iniciar.sh importar --prefeitura "Report_prefeitura.pdf" --pl "Projeto de Lei.pdf" -o leilao_entrada.xlsx
-.venv/bin/python -m leilao conferir leilao_entrada.xlsx
-.venv/bin/python -m leilao gerar leilao_entrada.xlsx -o relatorio_leilao.xlsx
+./iniciar.sh novo --prefeitura "Report_prefeitura.pdf" --pl "Projeto de Lei.pdf" --pasta leiloes/2026-2
+.venv/bin/python -m leilao conferir leiloes/2026-2/leilao.db
+.venv/bin/python -m leilao exportar leiloes/2026-2/leilao.db --formato xlsx
 ```
 
-## A planilha de entrada
+Os comandos antigos de XLSX continuam disponíveis para arquivos legados:
+
+- `importar` cria uma planilha de entrada no formato antigo.
+- `gerar` cria um relatório XLSX a partir de uma planilha de entrada antiga.
+- `modelo` cria uma planilha de entrada vazia no formato antigo.
+
+## Banco de dados
+
+O banco SQLite guarda grupos, lotes e bens. Os bens são ligados aos lotes por IDs
+internos; o código do patrimônio é a chave de negócio usada na busca e na
+reconciliação.
+
+Regras conferidas pelo banco e pela validação:
+
+- os números de lote são únicos dentro do leilão;
+- os nomes de grupo são únicos dentro do leilão;
+- os códigos de bem são únicos dentro de cada origem;
+- o mesmo código pode existir na Prefeitura e na Saúde;
+- todo lote precisa apontar para um grupo existente;
+- todo bem precisa apontar para um lote existente ou ficar sem lote.
+
+O rateio é calculado na geração do relatório. Ele não é gravado no banco.
+
+## Planilha de entrada antiga
+
+Uma `leilao_entrada.xlsx` antiga pode ser migrada com **Migrar planilha antiga** ou
+com o comando `migrar`. Depois da migração, edite os dados pela TUI e exporte o novo
+relatório.
+
+A planilha antiga tem estas abas:
 
 ### Aba Bens
 
 | Coluna | Para que serve |
 |---|---|
-| Lote | Lote em que o bem entra. **Vazio = bem ignorado.** |
+| Lote | Lote em que o bem entra. Vazio = bem ignorado. |
 | Tipo de bem | Normalmente `Bens Móveis`. |
 | Código | Patrimônio do bem. |
 | Conta Crédito / Conta Débito | Contas contábeis. Podem ficar vazias. |
@@ -264,28 +324,22 @@ No Linux, use `./iniciar.sh` antes dos mesmos argumentos, ou o ambiente virtual:
 |---|---|
 | Lote | Número do lote, com dois dígitos (`01`, `02`...). |
 | Valor da venda | Valor arrematado do lote. É esse valor que será rateado. |
-| Grupo | Nome do grupo da aba Grupos. Decide em qual aba o lote aparece. |
-| Seção | Título da seção. Lotes com a mesma seção e o mesmo grupo ficam juntos. |
+| Grupo | Nome do grupo da aba Grupos. |
+| Seção | Título da seção. |
 | Valor avaliado (PL) | Referência do projeto de lei. |
 | Descrição do PL | Texto do projeto de lei, só para consulta. |
 
 ### Aba Grupos
 
 Nome da aba, título, subtítulo, conta de depósito, agência, conta corrente e CNPJ.
-Para criar uma aba nova, acrescente uma linha e use esse nome na coluna **Grupo** dos
-lotes.
-
-### Aba Avisos
-
-Registra os avisos da importação (bem sem lote, lote sem bens no relatório etc.).
 
 ## Observações e limites
 
 - Os PDFs precisam ser os relatórios em tabela gerados pelo sistema (BIRT), com as
   colunas `Tipo do Bem`, `Código`, `Descrição` e `Valor Contábil`.
 - As contas contábeis não vêm nos PDFs. O programa deixa as colunas vazias; preencha
-  na aba Bens ou pela TUI se o relatório precisar delas.
-- A sugestão automática de lotes é um ponto de partida. Confira sempre a aba Bens,
+  pela TUI se o relatório precisar delas.
+- A sugestão automática de lotes é um ponto de partida. Confira sempre os bens,
   principalmente os bens da Saúde e os lotes genéricos.
 - Se um lote do projeto de lei não tiver nenhum bem nos relatórios, o programa cria
   uma linha a partir da descrição do PL e avisa. Confira descrição, código, contas e
@@ -293,7 +347,7 @@ Registra os avisos da importação (bem sem lote, lote sem bens no relatório et
 - Cada lote pertence a **um único grupo/aba**. Se um mesmo lote tiver bens de grupos
   diferentes, separe-o em dois lotes (por exemplo, `08` e `08-A`).
 - Os números de lote devem ser únicos, mesmo entre grupos diferentes.
-- Bens sem lote não entram no relatório e aparecem no aviso e na aba Avisos.
+- Bens sem lote não entram no relatório e aparecem nos avisos.
 
 ## Testes
 
@@ -320,32 +374,41 @@ Os testes incluem:
 - reprodução do lote 14 real (211 bens, R$ 50,00);
 - leitura dos PDFs de exemplo;
 - comparação de fontes, preenchimentos, bordas, larguras e margens com o modelo;
-- movimentação de bens por faixa de código;
-- edição de lotes, descrições, contas, adição e remoção;
+- movimentação de bens por faixa de código e filtro por origem;
+- persistência em SQLite, atualizações, remoções e migração de planilha antiga;
+- fluxo de exportação XLSX e PDF;
 - conferência de que todas as somas fecham.
 
 > Os PDFs e as planilhas do município **não são versionados** no repositório.
 > Para rodar os testes de integração, coloque os arquivos de exemplo na raiz do
-> projeto. Sem eles, esses testes são ignorados automaticamente.
+> projeto. Sem eles, esses testes são ignorados automaticamente. O teste de conversão
+> real em PDF também é ignorado quando o LibreOffice não está instalado.
 
 ## Estrutura do projeto
 
 ```
 AuctionReport/
   leilao/
-    money.py       dinheiro, formatação brasileira e rateio
-    models.py      modelos de bem, lote, grupo e resultado
-    pdfs.py        leitura dos relatórios e do projeto de lei
-    entrada.py     criação e leitura da planilha de entrada
-    edicao.py      movimentação e edição de bens/lotes/grupos
-    relatorio.py   geração do Excel no formato do modelo
-    tui.py         interface TUI e seleção nativa de arquivos
-    cli.py         linha de comando
+    money.py        dinheiro, formatação brasileira e rateio
+    models.py       modelos de bem, lote, grupo e resultado
+    pdfs.py         leitura dos relatórios e do projeto de lei
+    banco.py        persistência SQLite, pastas de leilão e migração
+    entrada.py      suporte à planilha de entrada antiga e validação
+    edicao.py       movimentação e edição de bens/lotes/grupos
+    relatorio.py    geração do Excel no formato do modelo
+    exportacao.py   fluxo de exportação XLSX e PDF
+    pdf_export.py   conversão com LibreOffice
+    tui.py          interface TUI e seleção nativa de arquivos
+    cli.py          linha de comando
   tests/
     test_money.py
     test_pdfs.py
     test_edicao.py
     test_template.py
+    test_banco.py
+    test_exportacao.py
+    test_pdf_export.py
+    test_cli.py
     test_integracao.py
   instalar.bat / iniciar.bat   instalação e execução no Windows
   instalar.sh / iniciar.sh     instalação e execução no Linux
@@ -360,8 +423,11 @@ AuctionReport/
   `instalar.bat` no Windows.
 - **Nenhuma janela de arquivos no Linux**: instale o Tk (`sudo pacman -S tk` no Arch) e
   abra o programa de novo. Sem o Tk, digite os caminhos no prompt.
-- **Não consigo salvar a planilha**: feche o arquivo no Excel ou no LibreOffice e tente
-  novamente.
+- **Não consigo salvar o leilão**: feche outros programas que possam estar usando o
+  `leilao.db` e tente novamente.
+- **A exportação em PDF falha**: instale o LibreOffice
+  (`sudo pacman -S libreoffice-fresh` no Arch) e exporte de novo. O XLSX é preservado
+  se a conversão falhar.
 - **Os testes de integração são ignorados**: faltam os PDFs e as planilhas de exemplo
   na raiz do projeto.
 - **`Permission denied` ao rodar um script**: use `bash instalar.sh` ou execute
