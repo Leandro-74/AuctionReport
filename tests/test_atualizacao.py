@@ -180,7 +180,7 @@ class AtualizacaoTests(unittest.TestCase):
             "Prefeitura", [grupo.nome for grupo in plano.novos_grupos]
         )
 
-    def test_reutiliza_grupo_renomeado_pelo_cnpj(self):
+    def test_grupo_renomeado_recebe_grupo_padrao_se_preciso(self):
         data = _data()
         data.grupos[0].nome = "Município"
         data.lotes[0].grupo = "Município"
@@ -188,7 +188,9 @@ class AtualizacaoTests(unittest.TestCase):
             "leilao.atualizacao.parse_asset_report", return_value=[]
         ):
             plano = planejar_atualizacao(data, [("Prefeitura", "pref.pdf")])
-        self.assertEqual(plano.novos_grupos, [])
+        self.assertIn(
+            "Prefeitura", [grupo.nome for grupo in plano.novos_grupos]
+        )
 
 
 if __name__ == "__main__":

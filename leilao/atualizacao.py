@@ -8,7 +8,6 @@ from decimal import Decimal
 from pathlib import Path
 
 from .entrada import (
-    DEFAULT_GROUPS,
     bulk_lots,
     group_for_source,
     normalize_lot,
@@ -71,19 +70,6 @@ def _grupo_para_origem(
     nome = normalize_source(origem)
     for grupo in data.grupos:
         if norm(grupo.nome) == norm(nome):
-            return grupo
-    padrao = DEFAULT_GROUPS.get(nome)
-    if padrao and padrao.cnpj:
-        outros = {
-            norm(chave)
-            for chave in DEFAULT_GROUPS
-            if norm(chave) != norm(nome)
-        }
-        for grupo in data.grupos:
-            if grupo.cnpj.strip() != padrao.cnpj:
-                continue
-            if norm(grupo.nome) in outros:
-                continue
             return grupo
     for grupo in plano.novos_grupos:
         if norm(grupo.nome) == norm(nome):
