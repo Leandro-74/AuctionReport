@@ -36,6 +36,7 @@ from .edicao import (
     remover_lote,
     substituir_descricao,
 )
+from .atualizacao import planejar_atualizacao
 from .banco import (
     BANCO_NOME,
     caminho_banco,
@@ -1040,6 +1041,150 @@ def migrar_leilao(estado: Estado) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _mostrar_plano(plano) -> None:
+    console.print(
+        Panel(
+            f"Novos bens: {len(plano.novos)}\n"
+            f"Bens alterados: {len(plano.alterados)}\n"
+            f"Bens ausentes dos PDFs: {len(plano.ausentes)}\n"
+            f"Novos lotes: {len(plano.novos_lotes)}\n"
+            f"Novos grupos: {len(plano.novos_grupos)}",
+            title="Resumo da atualização",
+            border_style="blue",
+        )
+    )
+    if plano.novos:
+        console.print("[bold]Bens novos[/]")
+        console.print(_tabela_bens(plano.novos, limite=30))
+        if len(plano.novos) > 30:
+            console.print(f"[dim]Mostrando 30 de {len(plano.novos)}.[/]")
+    if plano.alterados:
+        linhas = []
+        for alteracao in plano.alterados[:20]:
+            campos = "; ".join(
+                f"{campo}: {antigo} -> {novo}"
+                for campo, (antigo, novo) in alteracao.campos.items()
+            )
+            linhas.append(
+                f"{alteracao.bem.codigo or '(sem código)'} "
+                f"({alteracao.bem.origem or '-'}): {campos}"
+            )
+        if len(plano.alterados) > 20:
+            linhas.append(f"… e mais {len(plano.alterados) - 20} bem(ns).")
+        console.print(
+            Panel(
+                "\n".join(linhas),
+                title="Bens alterados",
+                border_style="yellow",
+            )
+        )
+    if plano.ausentes:
+        console.print("[bold]Bens que não apareceram nos PDFs[/]")
+        console.print(_tabela_bens(plano.ausentes, limite=30))
+        if len(plano.ausentes) > 30:
+            console.print(f"[dim]Mostrando 30 de {len(plano.ausentes)}.[/]")
+    if plano.novos_lotes:
+        linhas = [
+            f"Lote {lote.numero} ({lote.grupo}) - {format_brl(lote.valor)}"
+            for lote in plano.novos_lotes
+        ]
+        console.print(
+            Panel(
+                "\n".join(linhas),
+                title="Novos lotes do projeto de lei",
+                border_style="blue",
+            )
+        )
+    _avisos(plano.avisos)
+
+
+def atualizar_leilao(estado: Estado) -> None:
+    console.clear()
+    _banner()
+    if not _ensure_data(estado):
+        _pause()
+        return
+    _dashboard(estado)
+    console.print(
+        Panel(
+            "Selecione os PDFs atualizados. O banco atual não será alterado "
+            "até a confirmação.",
+            title="Atualizar com PDFs",
+            border_style="blue",
+        )
+    )
+    relatorios: list[tuple[str, str]] = []
+    for label, titulo in (
+        ("Prefeitura", "Relatório atualizado da Prefeitura"),
+        ("Saúde", "Relatório atualizado da Saúde"),
+        ("Educação", "Relatório atualizado da Educação (opcional)"),
+    ):
+        console.print(f"[bold]{titulo}[/]")
+        caminho = selecionar_pdf(titulo, estado.leilao)
+        if caminho:
+            relatorios.append((label, caminho))
+            console.print(f"  [green]✓[/] {caminho}")
+        else:
+            console.print("  [dim]pulado[/]")
+    if not relatorios:
+        _erro("Nenhum relatório selecionado.")
+        _pause()
+        return
+    pl = selecionar_pdf("Projeto de Lei atualizado", estado.leilao)
+    if pl:
+        console.print(f"[green]✓[/] Projeto de lei: {pl}")
+    else:
+        console.print("[dim]Projeto de lei não selecionado.[/]")
+
+    with console.status("[cyan]Comparando os PDFs com o banco...[/]"):
+        try:
+            plano = planejar_atualizacao(
+                estado.data, relatorios, pl or None
+            )
+        except Exception as exc:
+            _erro(str(exc))
+            _pause()
+            return
+
+    _mostrar_plano(plano)
+    if not plano.tem_mudancas:
+        console.print("[yellow]Nenhuma alteração para aplicar.[/]")
+        _pause()
+        return
+    if not _confirm("Aplicar a atualização?", default=False):
+        console.print("[dim]Cancelado.[/]")
+        _pause()
+        return
+
+    plano.aplicar(estado.data)
+    if not _salvar(estado):
+        try:
+            estado.data = carregar_leilao(estado.banco)
+        except Exception:
+            pass
+        _pause()
+        return
+
+    documentos = list(relatorios)
+    if pl:
+        documentos.append(("Projeto de Lei", pl))
+    try:
+        copiar_documentos(estado.banco, documentos)
+    except Exception as exc:
+        console.print(
+            Panel(
+                f"A atualização foi salva, mas os PDFs não puderam ser "
+                f"copiados: {exc}",
+                title="[bold yellow]Aviso[/]",
+                border_style="yellow",
+            )
+        )
+
+    _sucesso("Leilão atualizado.")
+    _dashboard(estado)
+    _pause()
+
+
 def _menu_exportacao() -> str | None:
     opcao = _menu(
         "Exportar leilão",
@@ -1182,11 +1327,12 @@ def main_tui() -> int:
                 ("1", "Novo leilão", "Importar PDFs e criar a pasta do leilão"),
                 ("2", "Abrir leilão", "Abrir um banco de leilão existente"),
                 ("3", "Editar leilão", "Editar bens, lotes, valores e descrições"),
-                ("4", "Exportar", "Gerar XLSX e/ou PDF para revisão e impressão"),
-                ("5", "Conferir", "Validar somas e avisos"),
-                ("6", "Grupos e contas", "Editar dados bancários e abas"),
-                ("7", "Migrar planilha antiga", "Converter um .xlsx antigo em banco"),
-                ("8", "Novo leilão vazio", "Criar um leilão em branco"),
+                ("4", "Atualizar com PDFs", "Comparar PDFs novos com o banco atual"),
+                ("5", "Exportar", "Gerar XLSX e/ou PDF para revisão e impressão"),
+                ("6", "Conferir", "Validar somas e avisos"),
+                ("7", "Grupos e contas", "Editar dados bancários e abas"),
+                ("8", "Migrar planilha antiga", "Converter um .xlsx antigo em banco"),
+                ("9", "Novo leilão vazio", "Criar um leilão em branco"),
                 ("0", "Sair", ""),
             ],
         )
@@ -1210,17 +1356,19 @@ def main_tui() -> int:
                 else:
                     _pause()
             elif opcao == "4":
-                exportar_leilao(estado)
+                atualizar_leilao(estado)
             elif opcao == "5":
-                conferir(estado)
+                exportar_leilao(estado)
             elif opcao == "6":
+                conferir(estado)
+            elif opcao == "7":
                 if _ensure_data(estado):
                     _grupos(estado)
                 else:
                     _pause()
-            elif opcao == "7":
-                migrar_leilao(estado)
             elif opcao == "8":
+                migrar_leilao(estado)
+            elif opcao == "9":
                 novo_leilao_vazio(estado)
             elif opcao == "0":
                 console.print("[dim]Até mais.[/]")
