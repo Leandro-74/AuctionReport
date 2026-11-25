@@ -54,8 +54,9 @@ class ExportacaoTests(unittest.TestCase):
             "leilao.exportacao.converter_xlsx_para_pdf",
             side_effect=PdfExportError("sem LibreOffice"),
         ):
-            with self.assertRaises(PdfExportError):
+            with self.assertRaises(PdfExportError) as ctx:
                 exportar(_data(), self.destino, "pdf", nome_base="teste")
+        self.assertIn("teste.xlsx", str(ctx.exception))
         self.assertTrue((self.destino / "teste.xlsx").exists())
         self.assertFalse((self.destino / "teste.pdf").exists())
 

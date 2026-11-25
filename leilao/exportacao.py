@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .models import ReportData
-from .pdf_export import converter_xlsx_para_pdf
+from .pdf_export import PdfExportError, converter_xlsx_para_pdf
 from .relatorio import gerar_relatorio
 
 FORMATOS = ("xlsx", "pdf", "ambos")
@@ -54,7 +54,12 @@ def exportar(
 
     if formato in ("pdf", "ambos"):
         pdf = pasta / f"{nome}.pdf"
-        converter_xlsx_para_pdf(resultado.xlsx, pdf)
+        try:
+            converter_xlsx_para_pdf(resultado.xlsx, pdf)
+        except PdfExportError as exc:
+            raise PdfExportError(
+                f"{exc}\nO XLSX foi preservado em: {resultado.xlsx}"
+            ) from exc
         resultado.pdf = pdf
 
     return resultado
