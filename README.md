@@ -1,25 +1,34 @@
-# Leilão Auto
+# AuctionReport
 
-Ferramenta em Python para montar os relatórios de bens de leilão em Excel.
+Ferramenta em Python para montar os relatórios de bens de leilão em Excel, com uma
+interface TUI, seleção de arquivos pelo Explorer e edição dos bens por código.
 
-Ela lê os relatórios do sistema em PDF, lê o projeto de lei com a divisão dos lotes,
-cria uma planilha de entrada editável e gera o relatório final com o valor de cada
-lote rateado entre os bens.
+Repositório: <https://github.com/Leandro-74/AuctionReport>
 
 ## O que ela faz
 
-- Lê os PDFs do tipo **Termo de Responsabilidade** (relatórios da Prefeitura, da Saúde e, se houver, da Educação).
+- Lê os PDFs do tipo **Termo de Responsabilidade** (Prefeitura, Saúde e, se houver, Educação).
 - Lê o **Projeto de Lei** e identifica os lotes, os patrimônios citados e os valores avaliados.
-- Cria `leilao_entrada.xlsx` com todos os bens e uma sugestão de lote para cada um.
+- Cria uma planilha de entrada editável com todos os bens e uma sugestão de lote.
+- Permite editar os dados pela própria TUI:
+  - mover bens por **código, faixa de códigos ou texto da descrição** para outro lote;
+  - alterar o valor, o grupo e a seção de um lote;
+  - alterar descrição, contas, código e lote de um bem;
+  - substituir um trecho da descrição em vários bens;
+  - adicionar/remover lotes e bens;
+  - editar grupos, contas bancárias, agência e CNPJ.
 - Rateia o valor de cada lote entre os bens, com no máximo **duas casas decimais**.
-- Coloca a diferença no **último bem** do lote, de forma que a soma feche exatamente o valor do lote.
-- Gera `relatorio_leilao.xlsx` no formato da planilha de exemplo, com uma aba por grupo/secretaria.
-- Cria uma aba **Resumo** com os totais por grupo e a conferência de cada lote.
-- Opcionalmente cria uma aba separada para cada lote com mais de um bem.
+- Coloca a diferença no **último bem** do lote, de forma que a soma feche exatamente.
+- Gera o relatório final com a **aparência do modelo** da prefeitura:
+  - abas principais por secretaria/grupo;
+  - abas auxiliares por categoria (`Todos os Veículos`, `Veículos`, `Veículos Hospital`,
+    `Mobiliário em Geral`, `Mobiliário em Geral H`, `Itens de Informática`);
+  - abas de contas para depósito (`Conta Município`, `Conta Fundo Municipal de Saude`).
+- Opcionalmente gera uma aba extra `Resumo` para conferência lote a lote.
 
 ## Instalação
 
-Requisitos: Python 3.10 ou superior e os pacotes `openpyxl` e `pdfplumber`.
+Requisitos: Python 3.10 ou superior.
 
 No Windows, dê dois cliques em `instalar.bat`. Ou, no terminal:
 
@@ -27,75 +36,147 @@ No Windows, dê dois cliques em `instalar.bat`. Ou, no terminal:
 python -m pip install -r requirements.txt
 ```
 
-## Uso rápido
+O seletor de arquivos usa o `tkinter`, que já vem com o Python no Windows.
 
-1. Coloque os PDFs na mesma pasta do projeto.
-2. Dê dois cliques em `iniciar.bat` (ou execute `python -m leilao`).
-3. Escolha **1 - Importar PDFs** e informe os arquivos.
-4. Abra a planilha `leilao_entrada.xlsx` e confira:
-   - **Bens:** o lote de cada bem (linhas em amarelo estão sem lote e ficam de fora);
-   - **Lotes:** o valor da venda de cada lote (pode começar com o valor avaliado do PL);
-   - **Grupos:** os dados de conta de cada aba.
-5. Volte ao menu e escolha **2 - Gerar relatório**.
-6. O arquivo `relatorio_leilao.xlsx` será criado.
+## Uso
 
-> A planilha `leilao_entrada.xlsx` que já está na pasta foi gerada a partir dos PDFs
-> deste leilão. Ela serve como ponto de partida.
->
-> Se você importar novamente, a planilha anterior é preservada como
-> `leilao_entrada.backup.xlsx`.
+Dê dois cliques em `iniciar.bat` ou execute:
+
+```powershell
+python -m leilao
+```
+
+A TUI abre com o menu principal:
+
+1. **Novo leilão** — abre o seletor do Windows para escolher os PDFs e cria a planilha de entrada.
+2. **Abrir/editar** — carrega uma planilha de entrada e abre o menu de edição.
+3. **Gerar relatório** — valida e gera o Excel no formato do modelo.
+4. **Conferir** — mostra os totais e os avisos sem gerar arquivo.
+5. **Grupos e contas** — edita os dados bancários e as abas.
+6. **Modelo vazio** — cria uma planilha de entrada em branco.
+
+Depois de importar, o programa já abre o painel de edição, mostrando:
+- totais por grupo;
+- lote a lote: valor, soma dos bens e status;
+- avisos e erros.
+
+## Edição por código
+
+No menu **Abrir/editar**, as opções principais são:
+
+### Mover bens
+
+Exemplos de seleção:
+
+| Seleção | O que move |
+|---|---|
+| `300-400` | Todos os códigos de 300 a 400 |
+| `300,305,310` | Somente esses três códigos |
+| `300..400` | O mesmo que `300-400` |
+| texto `MESA` | Bens cuja descrição contém `MESA` |
+| lote `08` + faixa `300-400` | Somente os códigos 300–400 que estão no lote 08 |
+
+Antes de aplicar, a TUI mostra uma prévia com a quantidade e os bens encontrados e
+pede confirmação. Se nenhum filtro for informado, a movimentação é bloqueada para
+não mover tudo por acidente.
+
+### Editar lote
+
+Permite alterar o valor da venda, o grupo (aba) e a seção (título) do lote.
+
+### Editar bem
+
+Permite alterar descrição, código, lote, tipo, categoria, Conta Crédito, Conta Débito,
+valor contábil e observação. Enter mantém o valor atual.
+
+### Substituir texto
+
+Troca um trecho da descrição em vários bens, opcionalmente filtrado por lote ou
+categoria. Também mostra uma prévia antes de aplicar.
+
+### Adicionar/remover
+
+Permite criar lotes e bens, remover lotes vazios e excluir bens por código, faixa,
+texto, lote ou categoria.
+
+As alterações são salvas automaticamente na planilha de entrada. A versão anterior
+é preservada como `leilao_entrada.backup.xlsx`.
+
+> A edição é feita na **planilha de entrada**, que é a fonte dos dados. Depois de
+> editar, use **Gerar relatório** para atualizar o Excel final. Edições feitas
+> manualmente no relatório final não voltam para a planilha de entrada.
+
+## Como o valor é dividido
+
+O valor total do lote é dividido pelo número de bens. As parcelas ficam com duas casas
+decimais e o que sobra vai para o último bem.
+
+Exemplo real da planilha de 2025: o lote 14 tinha **211 bens** e foi vendido por
+**R$ 50,00**.
+
+- 210 bens × R$ 0,23 = R$ 48,30
+- último bem = R$ 50,00 − R$ 48,30 = **R$ 1,70**
+- soma = **R$ 50,00**
+
+O quociente é truncado para baixo (`0,2369...` vira `0,23`), nunca arredondado para
+cima, para a última parcela nunca ficar negativa. O programa confere a soma de cada
+lote antes de gerar o arquivo.
+
+## Relatório gerado
+
+O padrão é gerar somente as abas do modelo. A aba `Resumo` é opcional e pode ser
+incluída na hora de gerar.
+
+Aparência reproduzida do modelo:
+
+- abas principais com 6 colunas, título, dados da conta, total dos lotes e seções por lote;
+- abas auxiliares: `Todos os Veículos` com 6 colunas (inclui Conta Crédito), as demais
+  com 5 colunas (`Tipo de bem`, `Código`, `Conta Débito`, `Descrição`, `Valor`);
+- abas de conta com 4 colunas e os blocos de agência, conta corrente, CNPJ e total;
+- fontes Calibri/Arial, fundo cinza `D9D9D9`, bordas finas, formato `R$ #,##0.00`,
+  larguras de coluna e margens iguais às do modelo.
+
+As abas auxiliares são criadas automaticamente conforme os dados:
+
+- `Relatório Todos os Veículos` — todos os veículos;
+- `Relatório Veículos` — veículos da Prefeitura/Educação (quando há também veículos da Saúde);
+- `Relatório Veículos Hospital` — veículos da Saúde (quando há também veículos municipais);
+- `Relatório Mobiliário em Geral` — móveis municipais;
+- `Relatório Mobiliário em Geral H` — bens hospitalares da Saúde;
+- `Relatório Itens de Informática` — informática municipal;
+- `Relatório Outros Bens` — outras categorias municipais, se houver.
+
+> O modelo original tinha pequenas diferenças de preenchimento entre as abas
+> auxiliares (algumas com fundo cinza mais escuro e linhas zebradas). A ferramenta
+> uniformiza essas abas no mesmo padrão das abas principais, mantendo títulos,
+> colunas, fontes, bordas, larguras e margens do modelo.
 
 ## Linha de comando
 
-Importar os PDFs:
+A TUI é o fluxo recomendado, mas os comandos continuam disponíveis para automação:
 
 ```powershell
-python -m leilao importar `
-  --prefeitura "Report_prefeitura.pdf" `
-  --saude "Report_saúde.pdf" `
-  --pl "Projeto de Lei - Autoriza Alienação de Bens.pdf" `
-  -o leilao_entrada.xlsx
-```
+python -m leilao importar --prefeitura "Report_prefeitura.pdf" --saude "Report_saúde.pdf" --pl "Projeto de Lei.pdf" -o leilao_entrada.xlsx
 
-Conferir sem gerar o Excel:
-
-```powershell
 python -m leilao conferir leilao_entrada.xlsx
-```
 
-Gerar o relatório:
-
-```powershell
 python -m leilao gerar leilao_entrada.xlsx -o relatorio_leilao.xlsx
-```
 
-Gerar também uma aba por lote com mais de um bem:
+python -m leilao gerar leilao_entrada.xlsx -o relatorio_leilao.xlsx --com-resumo
 
-```powershell
-python -m leilao gerar leilao_entrada.xlsx -o relatorio_leilao.xlsx --por-lote
-```
-
-Criar uma planilha de entrada vazia (modelo):
-
-```powershell
 python -m leilao modelo -o modelo_leilao.xlsx
 ```
-
-Se o projeto de lei não for informado, a planilha é criada sem lotes sugeridos; nesse
-caso preencha a aba **Lotes** manualmente.
 
 ## A planilha de entrada
 
 ### Aba Bens
-
-Uma linha por bem:
 
 | Coluna | Para que serve |
 |---|---|
 | Lote | Lote em que o bem entra. **Vazio = bem ignorado.** |
 | Tipo de bem | Normalmente `Bens Móveis`. |
 | Código | Patrimônio do bem. |
-| Conta Crédito / Conta Débito | Contas contábeis. Podem ficar vazias se não forem usadas. |
+| Conta Crédito / Conta Débito | Contas contábeis. Podem ficar vazias. |
 | Descrição | Descrição que sai no relatório. |
 | Valor Contábil | Valor do sistema, usado só como referência. |
 | Origem | Prefeitura, Saúde ou Educação. |
@@ -103,8 +184,6 @@ Uma linha por bem:
 | Observação | Texto livre. |
 
 ### Aba Lotes
-
-Uma linha por lote:
 
 | Coluna | Para que serve |
 |---|---|
@@ -117,57 +196,26 @@ Uma linha por lote:
 
 ### Aba Grupos
 
-Dados de cada aba do relatório: nome da aba, título, subtítulo, conta de depósito,
-agência, conta corrente e CNPJ. Para criar uma aba nova, acrescente uma linha e use
-esse nome na coluna **Grupo** dos lotes.
+Nome da aba, título, subtítulo, conta de depósito, agência, conta corrente e CNPJ.
+Para criar uma aba nova, acrescente uma linha e use esse nome na coluna **Grupo** dos lotes.
 
 ### Aba Avisos
 
-Quando a importação gera avisos (bem sem lote, lote sem bens no relatório etc.),
-eles também ficam registrados aqui.
-
-## Como o valor é dividido
-
-O valor total do lote é dividido pelo número de bens. As parcelas ficam com duas casas
-decimais e o que sobra vai para o último bem.
-
-Exemplo real da planilha de 2025: o lote 14 tinha **211 bens** e foi vendido por
-**R$ 50,00**. O cálculo fica:
-
-- 210 bens × R$ 0,23 = R$ 48,30
-- último bem = R$ 50,00 − R$ 48,30 = **R$ 1,70**
-- soma = **R$ 50,00**
-
-O quociente é sempre truncado para baixo (`0,2369...` vira `0,23`), nunca arredondado
-para cima, para a última parcela nunca ficar negativa. O programa confere a soma de
-cada lote antes de gerar o arquivo.
-
-## Conferência
-
-A aba **Resumo** do relatório final mostra:
-
-- totais por grupo (quantidade de bens e valor);
-- lote a lote: valor do lote, soma dos bens e situação (`OK` ou `ERRO`);
-- total geral.
-
-O comando `python -m leilao conferir leilao_entrada.xlsx` faz a mesma conferência
-no terminal e lista os erros e avisos.
+Registra os avisos da importação (bem sem lote, lote sem bens no relatório etc.).
 
 ## Observações e limites
 
 - Os PDFs precisam ser os relatórios em tabela gerados pelo sistema (BIRT), com as
   colunas `Tipo do Bem`, `Código`, `Descrição` e `Valor Contábil`.
-- As contas contábeis (Crédito/Débito) **não** vêm nos PDFs. O programa deixa as
-  colunas vazias; preencha na aba Bens se o relatório precisar delas.
+- As contas contábeis não vêm nos PDFs. O programa deixa as colunas vazias; preencha
+  na aba Bens ou pela TUI se o relatório precisar delas.
 - A sugestão automática de lotes é um ponto de partida. Confira sempre a aba Bens,
-  principalmente os bens da Saúde e os lotes genéricos (mobiliário, informática,
-  hospitalar).
+  principalmente os bens da Saúde e os lotes genéricos.
 - Se um lote do projeto de lei não tiver nenhum bem nos relatórios, o programa cria
-  uma linha a partir da descrição do PL e avisa. Confira a descrição, o código, as
-  contas e o valor contábil dessa linha.
+  uma linha a partir da descrição do PL e avisa. Confira descrição, código, contas e
+  valor contábil dessa linha.
 - Cada lote pertence a **um único grupo/aba**. Se um mesmo lote tiver bens de grupos
-  diferentes, separe-o em dois lotes (por exemplo, `08` e `08-A`) com os valores
-  correspondentes.
+  diferentes, separe-o em dois lotes (por exemplo, `08` e `08-A`).
 - Os números de lote devem ser únicos, mesmo entre grupos diferentes.
 - Bens sem lote não entram no relatório e aparecem no aviso e na aba Avisos.
 
@@ -177,8 +225,13 @@ no terminal e lista os erros e avisos.
 python -m unittest discover -s tests -v
 ```
 
-Os testes incluem a reprodução do lote 14 real (211 bens, R$ 50,00), a leitura dos
-PDFs de exemplo e a conferência de que todas as somas fecham.
+Os testes incluem:
+- reprodução do lote 14 real (211 bens, R$ 50,00);
+- leitura dos PDFs de exemplo;
+- comparação de fontes, preenchimentos, bordas, larguras e margens com o modelo;
+- movimentação de bens por faixa de código;
+- edição de lotes, descrições, contas, adição e remoção;
+- conferência de que todas as somas fecham.
 
 > Os PDFs e as planilhas do município **não são versionados** no repositório.
 > Para rodar os testes de integração, coloque os arquivos de exemplo na raiz do
@@ -192,10 +245,14 @@ leilao/
   models.py     modelos de bem, lote, grupo e resultado
   pdfs.py       leitura dos relatórios e do projeto de lei
   entrada.py    criação e leitura da planilha de entrada
-  relatorio.py  geração do relatório final em Excel
-  cli.py        menu e linha de comando
+  edicao.py     movimentação e edição de bens/lotes/grupos
+  relatorio.py  geração do Excel no formato do modelo
+  tui.py        interface TUI e seleção nativa de arquivos
+  cli.py        linha de comando
 tests/
   test_money.py
   test_pdfs.py
+  test_edicao.py
+  test_template.py
   test_integracao.py
 ```

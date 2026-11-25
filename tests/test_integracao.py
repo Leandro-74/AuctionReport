@@ -99,21 +99,47 @@ class IntegracaoLeilaoCompletoTests(unittest.TestCase):
             self.assertEqual(
                 sum(r.lote.valor for r in dados.resultados), Decimal("420850.00")
             )
-            gerar_relatorio(dados, saida, por_lote=True)
+            gerar_relatorio(dados, saida, incluir_resumo=False)
 
             gerado = load_workbook(saida, data_only=True)
             self.assertIn("Relatório Bens da Prefeitura", gerado.sheetnames)
             self.assertIn("Relatório Bens da Saúde", gerado.sheetnames)
-            self.assertIn("Resumo", gerado.sheetnames)
-            self.assertEqual(
-                [n for n in gerado.sheetnames if n.startswith("Lote ")],
-                [
-                    "Lote 08 - Mobiliário",
-                    "Lote 09 - Hospitalar",
-                    "Lote 10 - Informática",
-                ],
-            )
-            resumo = gerado["Resumo"]
+            self.assertIn("Relatório Todos os Veículos", gerado.sheetnames)
+            self.assertIn("Relatório Veículos", gerado.sheetnames)
+            self.assertIn("Relatório Veículos Hospital", gerado.sheetnames)
+            self.assertIn("Relatório Mobiliário em Geral", gerado.sheetnames)
+            self.assertIn("Relatório Mobiliário em Geral H", gerado.sheetnames)
+            self.assertIn("Relatório Itens de Informática", gerado.sheetnames)
+            self.assertIn("Conta Município", gerado.sheetnames)
+            self.assertIn("Conta Fundo Municipal de Saude", gerado.sheetnames)
+            self.assertNotIn("Resumo", gerado.sheetnames)
+
+            # Abas auxiliares com as mesmas colunas e linhas do modelo.
+            aux = gerado["Relatório Todos os Veículos"]
+            self.assertEqual(aux["A4"].value, "Tipo de bem")
+            self.assertEqual(aux["C4"].value, "Conta Crédito")
+            self.assertEqual(aux["D4"].value, "Conta Débito")
+            self.assertEqual(aux["F4"].value, "Valor")
+            self.assertEqual(aux.max_row, 11)  # 7 veículos + cabeçalho na linha 4
+
+            mobiliario = gerado["Relatório Mobiliário em Geral"]
+            self.assertEqual(mobiliario.max_row, 17)  # 13 bens + cabeçalho na linha 4
+            hospital = gerado["Relatório Mobiliário em Geral H"]
+            self.assertEqual(hospital.max_row, 38)  # 34 bens + cabeçalho na linha 4
+            informatica = gerado["Relatório Itens de Informática"]
+            self.assertEqual(informatica.max_row, 42)  # 38 bens + cabeçalho na linha 4
+
+            conta = gerado["Conta Município"]
+            self.assertIn("Valor total dos lotes: R$ 378.750,00", conta["A7"].value)
+            conta_saude = gerado["Conta Fundo Municipal de Saude"]
+            self.assertIn("Valor total dos lotes: R$ 42.100,00", conta_saude["A7"].value)
+
+            # A aba Resumo é opcional.
+            saida_resumo = Path(pasta) / "relatorio_com_resumo.xlsx"
+            gerar_relatorio(dados, saida_resumo, incluir_resumo=True)
+            com_resumo = load_workbook(saida_resumo, data_only=True)
+            self.assertIn("Resumo", com_resumo.sheetnames)
+            resumo = com_resumo["Resumo"]
             self.assertEqual(resumo["A8"].value, "TOTAL GERAL")
             self.assertAlmostEqual(resumo["G8"].value, 420850.00, places=2)
 

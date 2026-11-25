@@ -1,21 +1,13 @@
-"""Interface de linha de comando e menu interativo."""
+"""Linha de comando do AuctionReport. Sem argumentos, abre a TUI."""
 
 from __future__ import annotations
 
 import argparse
-import glob
-import os
-import subprocess
 import sys
 from decimal import Decimal
 from pathlib import Path
 
-from .entrada import (
-    importar_pdfs,
-    ler_entrada,
-    modelo_entrada,
-    write_entrada,
-)
+from .entrada import importar_pdfs, ler_entrada, modelo_entrada, write_entrada
 from .models import Issue, ReportData, norm
 from .money import format_brl
 from .relatorio import gerar_relatorio
@@ -29,43 +21,17 @@ def _utf8() -> None:
             pass
 
 
-def _find_default(pattern: str) -> str:
-    matches = sorted(glob.glob(pattern))
-    return matches[0] if matches else ""
-
-
-def _ask_path(prompt: str, default: str = "") -> str:
-    sufixo = f" [{default}]" if default else ""
-    texto = input(f"{prompt}{sufixo}: ").strip()
-    texto = texto.strip('"').strip("'").strip()
-    return texto or default
-
-
-def _open_file(path: str | Path) -> None:
-    try:
-        if os.name == "nt":
-            os.startfile(str(path))  # type: ignore[attr-defined]
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", str(path)])
-        else:
-            subprocess.Popen(["xdg-open", str(path)])
-    except Exception:
-        pass
-
-
-def _print_issues(issues: list[Issue], somente_avisos: bool = False) -> None:
+def _print_issues(issues: list[Issue]) -> None:
     erros = [i for i in issues if i.nivel == "erro"]
     avisos = [i for i in issues if i.nivel == "aviso"]
     if erros:
         print("\nERROS:")
         for issue in erros:
             print(f"  - {issue}")
-    if avisos and not somente_avisos:
+    if avisos:
         print("\nAVISOS:")
         for issue in avisos:
             print(f"  - {issue}")
-    elif avisos:
-        print(f"\n{len(avisos)} aviso(s).")
 
 
 def _print_resumo(data: ReportData) -> None:
@@ -84,8 +50,10 @@ def _print_resumo(data: ReportData) -> None:
             f"{format_brl(resultado.soma):>16}  {situacao}"
         )
     print("-" * 80)
-    print(f"{'TOTAL':<6} {'':<14} {sum(len(r.bens) for r in data.resultados):>5}  "
-          f"{format_brl(total):>16}  {format_brl(total):>16}")
+    print(
+        f"{'TOTAL':<6} {'':<14} {sum(len(r.bens) for r in data.resultados):>5}  "
+        f"{format_brl(total):>16}  {format_brl(total):>16}"
+    )
     print("\nTotais por grupo:")
     for grupo in sorted(data.grupos, key=lambda g: (g.ordem, g.nome)):
         resultados = [
@@ -94,7 +62,9 @@ def _print_resumo(data: ReportData) -> None:
         if not resultados:
             continue
         subtotal = sum((r.lote.valor for r in resultados), Decimal("0.00"))
-        print(f"  {grupo.nome:<14} {len(resultados):>3} lote(s)  {format_brl(subtotal):>16}")
+        print(
+            f"  {grupo.nome:<14} {len(resultados):>3} lote(s)  {format_brl(subtotal):>16}"
+        )
 
 
 def _cmd_importar(args: argparse.Namespace) -> int:
@@ -148,12 +118,7 @@ def _cmd_gerar(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        saida = gerar_relatorio(
-            data,
-            args.saida,
-            incluir_resumo=not args.sem_resumo,
-            por_lote=args.por_lote,
-        )
+        saida = gerar_relatorio(data, args.saida, incluir_resumo=args.com_resumo)
     except ValueError as exc:
         print(f"ERRO: {exc}")
         return 1
@@ -182,91 +147,11 @@ def _cmd_modelo(args: argparse.Namespace) -> int:
     return 0
 
 
-def _menu() -> int:
-    print("=" * 62)
-    print("  LEILÃO AUTO - relatórios de bens em Excel")
-    print("=" * 62)
-    while True:
-        print(
-            "\n1 - Importar PDFs e criar planilha de entrada\n"
-            "2 - Gerar relatório a partir da planilha de entrada\n"
-            "3 - Conferir planilha de entrada\n"
-            "4 - Criar planilha de entrada vazia (modelo)\n"
-            "0 - Sair"
-        )
-        opcao = input("\nEscolha uma opção: ").strip()
-        if opcao == "0":
-            return 0
-        if opcao == "1":
-            prefeitura = _ask_path(
-                "PDF do relatório da Prefeitura (Enter para pular)",
-                _find_default("Report_pref*.pdf"),
-            )
-            saude = _ask_path(
-                "PDF do relatório da Saúde (Enter para pular)",
-                _find_default("Report_sa*.pdf"),
-            )
-            educacao = _ask_path(
-                "PDF do relatório da Educação (Enter para pular)", ""
-            )
-            if not prefeitura and not saude and not educacao:
-                print("Nenhum PDF informado.")
-                continue
-            pl = _ask_path(
-                "PDF do projeto de lei (Enter para pular)",
-                _find_default("*Projeto*.pdf"),
-            )
-            saida = _ask_path(
-                "Nome da planilha de entrada", "leilao_entrada.xlsx"
-            )
-            args = argparse.Namespace(
-                prefeitura=prefeitura or None,
-                saude=saude or None,
-                educacao=educacao or None,
-                pl=pl or None,
-                saida=saida,
-            )
-            codigo = _cmd_importar(args)
-            if codigo == 0 and Path(saida).exists() and input(
-                "Abrir a planilha agora? (S/n): "
-            ).strip().lower() not in ("n", "nao", "não"):
-                _open_file(saida)
-        elif opcao == "2":
-            entrada = _ask_path("Planilha de entrada", "leilao_entrada.xlsx")
-            saida = _ask_path("Nome do relatório final", "relatorio_leilao.xlsx")
-            por_lote = input(
-                "Criar uma aba separada para cada lote com mais de um bem? (s/N): "
-            ).strip().lower() in ("s", "sim")
-            args = argparse.Namespace(
-                entrada=entrada, saida=saida, sem_resumo=False, por_lote=por_lote
-            )
-            codigo = _cmd_gerar(args)
-            if codigo == 0 and input("Abrir o relatório agora? (S/n): ").strip().lower() not in (
-                "n",
-                "nao",
-                "não",
-            ):
-                _open_file(saida)
-        elif opcao == "3":
-            entrada = _ask_path("Planilha de entrada", "leilao_entrada.xlsx")
-            _cmd_conferir(argparse.Namespace(entrada=entrada))
-        elif opcao == "4":
-            saida = _ask_path("Nome do modelo", "modelo_leilao.xlsx")
-            _cmd_modelo(argparse.Namespace(saida=saida))
-            if Path(saida).exists() and input(
-                "Abrir o modelo agora? (S/n): "
-            ).strip().lower() not in ("n", "nao", "não"):
-                _open_file(saida)
-        else:
-            print("Opção inválida.")
-        input("\nPressione Enter para voltar ao menu...")
-
-
 def main(argv: list[str] | None = None) -> int:
     _utf8()
     parser = argparse.ArgumentParser(
         prog="python -m leilao",
-        description="Monta os relatórios de bens de leilão em Excel.",
+        description="AuctionReport: relatórios de bens de leilão em Excel.",
     )
     sub = parser.add_subparsers(dest="comando")
 
@@ -283,11 +168,10 @@ def main(argv: list[str] | None = None) -> int:
     p_ger = sub.add_parser("gerar", help="gera o relatório final")
     p_ger.add_argument("entrada", nargs="?", default="leilao_entrada.xlsx")
     p_ger.add_argument("-o", "--saida", default="relatorio_leilao.xlsx")
-    p_ger.add_argument("--sem-resumo", action="store_true", help="não criar a aba Resumo")
     p_ger.add_argument(
-        "--por-lote",
+        "--com-resumo",
         action="store_true",
-        help="criar uma aba separada para cada lote com mais de um bem",
+        help="incluir a aba extra de conferência (Resumo)",
     )
     p_ger.set_defaults(func=_cmd_gerar)
 
@@ -301,8 +185,10 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     if not args.comando:
+        from .tui import main_tui
+
         try:
-            return _menu()
+            return main_tui()
         except KeyboardInterrupt:
             print("\nAté mais.")
             return 0

@@ -1032,15 +1032,18 @@ def ler_entrada(path: str | Path) -> ReportData:
         )
 
     data = ReportData()
-    grupos, issues_grupos = _read_grupos(wb["Grupos"])
-    lotes, issues_lotes = _read_lotes(wb["Lotes"])
-    bens, issues_bens = _read_bens(wb["Bens"])
-    data.grupos = grupos
-    data.lotes = lotes
-    data.bens = bens
-    data.issues.extend(issues_grupos + issues_lotes + issues_bens)
-    _build_results(data)
-    return data
+    try:
+        grupos, issues_grupos = _read_grupos(wb["Grupos"])
+        lotes, issues_lotes = _read_lotes(wb["Lotes"])
+        bens, issues_bens = _read_bens(wb["Bens"])
+        data.grupos = grupos
+        data.lotes = lotes
+        data.bens = bens
+        data.issues.extend(issues_grupos + issues_lotes + issues_bens)
+        _build_results(data)
+        return data
+    finally:
+        wb.close()
 
 
 def modelo_entrada(path: str | Path) -> Path:
