@@ -1,0 +1,29 @@
+# Dados locais do leilão (não versionar)
+*.pdf
+*.xlsx
+*.xls
+*.csv
+leilao_entrada*
+relatorio_leilao*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# Sistema/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+.env
