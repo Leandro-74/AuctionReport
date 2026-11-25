@@ -344,6 +344,9 @@ Sheet name, title, subtitle, deposit account, branch, checking account and CNPJ.
 - If a bill of law lot has no assets in the reports, the program creates a row from
   the bill description and shows a warning. Review the description, code, accounts
   and book value of that row.
+- If a bill of law code matches more than one asset (for example, the same code in
+  Prefeitura and Saúde), the automatic lot assignment is skipped and a warning asks
+  for manual assignment.
 - Each lot belongs to a **single group/sheet**. If the same lot has assets from
   different groups, split it into two lots (for example, `08` and `08-A`).
 - Lot numbers must be unique, even across different groups.
@@ -409,6 +412,7 @@ AuctionReport/
     test_exportacao.py
     test_pdf_export.py
     test_cli.py
+    test_importacao.py
     test_integracao.py
   instalar.bat / iniciar.bat   Windows setup and launcher
   instalar.sh / iniciar.sh     Linux setup and launcher

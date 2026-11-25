@@ -344,6 +344,9 @@ Nome da aba, título, subtítulo, conta de depósito, agência, conta corrente e
 - Se um lote do projeto de lei não tiver nenhum bem nos relatórios, o programa cria
   uma linha a partir da descrição do PL e avisa. Confira descrição, código, contas e
   valor contábil dessa linha.
+- Se um código do projeto de lei corresponder a mais de um bem (por exemplo, o mesmo
+  código na Prefeitura e na Saúde), a associação automática é ignorada e um aviso pede
+  para atribuir o lote manualmente.
 - Cada lote pertence a **um único grupo/aba**. Se um mesmo lote tiver bens de grupos
   diferentes, separe-o em dois lotes (por exemplo, `08` e `08-A`).
 - Os números de lote devem ser únicos, mesmo entre grupos diferentes.
@@ -409,6 +412,7 @@ AuctionReport/
     test_exportacao.py
     test_pdf_export.py
     test_cli.py
+    test_importacao.py
     test_integracao.py
   instalar.bat / iniciar.bat   instalação e execução no Windows
   instalar.sh / iniciar.sh     instalação e execução no Linux
