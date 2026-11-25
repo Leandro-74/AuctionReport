@@ -7,7 +7,18 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
+from .banco import (
+    BANCO_NOME,
+    caminho_banco,
+    carregar_leilao,
+    copiar_documentos,
+    criar_banco,
+    criar_estrutura,
+    migrar_planilha,
+    salvar_leilao,
+)
 from .entrada import importar_pdfs, ler_entrada, modelo_entrada, write_entrada
+from .exportacao import FORMATOS, exportar
 from .models import Issue, ReportData, norm
 from .money import format_brl
 from .relatorio import gerar_relatorio
@@ -104,6 +115,105 @@ def _cmd_importar(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_novo(args: argparse.Namespace) -> int:
+    relatorios: list[tuple[str, str]] = []
+    for label, caminho in (
+        ("Prefeitura", args.prefeitura),
+        ("Saúde", args.saude),
+        ("Educação", args.educacao),
+    ):
+        if caminho:
+            if not Path(caminho).exists():
+                print(f"ERRO: arquivo não encontrado: {caminho}")
+                return 1
+            relatorios.append((label, caminho))
+    if not relatorios:
+        print("ERRO: informe pelo menos --prefeitura ou --saude.")
+        return 1
+    if args.pl and not Path(args.pl).exists():
+        print(f"ERRO: arquivo não encontrado: {args.pl}")
+        return 1
+
+    pasta = Path(args.pasta).expanduser()
+    db_path = caminho_banco(pasta)
+    if db_path.exists():
+        print(f"ERRO: já existe um leilão em {pasta}.")
+        return 1
+
+    try:
+        grupos, lotes, bens, issues = importar_pdfs(relatorios, args.pl)
+        criar_estrutura(pasta)
+        criar_banco(db_path, nome=pasta.name)
+        data = salvar_leilao(
+            db_path, ReportData(grupos=grupos, lotes=lotes, bens=bens)
+        )
+        documentos = list(relatorios)
+        if args.pl:
+            documentos.append(("Projeto de Lei", args.pl))
+        copiar_documentos(db_path, documentos)
+    except (ValueError, OSError) as exc:
+        print(f"ERRO: {exc}")
+        return 1
+
+    _print_issues(issues)
+    _print_issues(data.issues)
+    _print_resumo(data)
+    print(f"\nLeilão criado em: {pasta.resolve()}")
+    print(f"Banco: {db_path.resolve()}")
+    return 0
+
+
+def _cmd_migrar(args: argparse.Namespace) -> int:
+    pasta = Path(args.pasta).expanduser()
+    try:
+        data = migrar_planilha(args.entrada, pasta)
+    except (ValueError, OSError) as exc:
+        print(f"ERRO: {exc}")
+        return 1
+    _print_issues(data.issues)
+    _print_resumo(data)
+    print(f"\nLeilão migrado para: {pasta.resolve()}")
+    print(f"Banco: {caminho_banco(pasta).resolve()}")
+    return 0
+
+
+def _cmd_exportar(args: argparse.Namespace) -> int:
+    db_path = Path(args.banco).expanduser()
+    try:
+        data = carregar_leilao(db_path)
+    except ValueError as exc:
+        print(f"ERRO: {exc}")
+        return 1
+
+    _print_issues(data.issues)
+    if data.erros:
+        print("\nCorrija os erros antes de exportar.")
+        return 1
+
+    pasta = (
+        Path(args.saida).expanduser()
+        if args.saida
+        else db_path.parent / "exportacoes"
+    )
+    try:
+        resultado = exportar(
+            data,
+            pasta,
+            args.formato,
+            nome_base=args.nome,
+            incluir_resumo=args.com_resumo,
+        )
+    except (ValueError, OSError) as exc:
+        print(f"ERRO: {exc}")
+        return 1
+
+    if resultado.xlsx:
+        print(f"\nXLSX gerado: {resultado.xlsx.resolve()}")
+    if resultado.pdf:
+        print(f"PDF gerado: {resultado.pdf.resolve()}")
+    return 0
+
+
 def _cmd_gerar(args: argparse.Namespace) -> int:
     try:
         data = ler_entrada(args.entrada)
@@ -126,9 +236,16 @@ def _cmd_gerar(args: argparse.Namespace) -> int:
     return 0
 
 
+def _ler_leilao(caminho: str | Path) -> ReportData:
+    caminho = Path(caminho)
+    if caminho.suffix.lower() == ".db":
+        return carregar_leilao(caminho)
+    return ler_entrada(caminho)
+
+
 def _cmd_conferir(args: argparse.Namespace) -> int:
     try:
-        data = ler_entrada(args.entrada)
+        data = _ler_leilao(args.entrada)
     except ValueError as exc:
         print(f"ERRO: {exc}")
         return 1
@@ -155,7 +272,49 @@ def main(argv: list[str] | None = None) -> int:
     )
     sub = parser.add_subparsers(dest="comando")
 
-    p_imp = sub.add_parser("importar", help="lê os PDFs e cria a planilha de entrada")
+    p_novo = sub.add_parser(
+        "novo", help="lê os PDFs e cria a pasta e o banco do leilão"
+    )
+    p_novo.add_argument("--prefeitura", help="PDF do relatório da Prefeitura")
+    p_novo.add_argument("--saude", help="PDF do relatório da Saúde")
+    p_novo.add_argument("--educacao", help="PDF do relatório da Educação")
+    p_novo.add_argument("--pl", help="PDF do projeto de lei com os lotes")
+    p_novo.add_argument(
+        "--pasta", required=True, help="pasta do leilão a criar"
+    )
+    p_novo.set_defaults(func=_cmd_novo)
+
+    p_mig = sub.add_parser(
+        "migrar", help="converte uma planilha de entrada antiga em banco"
+    )
+    p_mig.add_argument("entrada", help="planilha .xlsx de entrada")
+    p_mig.add_argument(
+        "--pasta", required=True, help="pasta do leilão a criar"
+    )
+    p_mig.set_defaults(func=_cmd_migrar)
+
+    p_exp = sub.add_parser(
+        "exportar", help="gera o XLSX e/ou o PDF a partir do banco"
+    )
+    p_exp.add_argument("banco", nargs="?", default=BANCO_NOME)
+    p_exp.add_argument(
+        "--formato",
+        choices=FORMATOS,
+        default="xlsx",
+        help="formato de saída (padrão: xlsx)",
+    )
+    p_exp.add_argument("--saida", help="pasta de exportação")
+    p_exp.add_argument("--nome", help="nome base dos arquivos")
+    p_exp.add_argument(
+        "--com-resumo",
+        action="store_true",
+        help="incluir a aba extra de conferência (Resumo)",
+    )
+    p_exp.set_defaults(func=_cmd_exportar)
+
+    p_imp = sub.add_parser(
+        "importar", help="(legado) lê os PDFs e cria a planilha de entrada"
+    )
     p_imp.add_argument("--prefeitura", help="PDF do relatório da Prefeitura")
     p_imp.add_argument("--saude", help="PDF do relatório da Saúde")
     p_imp.add_argument("--educacao", help="PDF do relatório da Educação")
@@ -175,8 +334,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_ger.set_defaults(func=_cmd_gerar)
 
-    p_con = sub.add_parser("conferir", help="confere os valores sem gerar o Excel")
-    p_con.add_argument("entrada", nargs="?", default="leilao_entrada.xlsx")
+    p_con = sub.add_parser(
+        "conferir", help="confere um banco (.db) ou uma planilha (.xlsx)"
+    )
+    p_con.add_argument("entrada", nargs="?", default=BANCO_NOME)
     p_con.set_defaults(func=_cmd_conferir)
 
     p_mod = sub.add_parser("modelo", help="cria uma planilha de entrada vazia")
