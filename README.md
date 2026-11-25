@@ -11,9 +11,9 @@
 ## About
 
 AuctionReport is a local Python tool that prepares the asset reports for public
-auctions of the Brazilian municipality. It reads the PDF reports exported by
-the BIRT system (Prefeitura, Saúde and, when available, Educação), reads the bill of
-law that defines the lots, and stores the auction in a SQLite database.
+auctions of a Brazilian municipality. It reads the PDF reports exported by the BIRT
+system (Prefeitura, Saúde and, when available, Educação), reads the bill of law that
+defines the lots, and stores the auction in a SQLite database.
 
 Each auction lives in its own folder, with the source PDFs and the generated files.
 Data is edited in a terminal UI (TUI). The final XLSX is generated on demand. Open it
@@ -71,6 +71,32 @@ cd AuctionReport
 
 If the script is not executable, run it with `bash instalar.sh` or use
 `chmod +x instalar.sh iniciar.sh testar.sh` first.
+
+## Configuration
+
+The repository contains only fictitious placeholders. To use real municipality data:
+
+1. Copy `.env.example` to `.env`.
+2. Fill in the municipality title, agency, CNPJs and checking accounts.
+3. Keep `.env` only on your computer. It is ignored by Git.
+
+The variables are:
+
+| Variable | Purpose |
+|---|---|
+| `AUCTIONREPORT_MUNICIPIO` | Municipality name used in report titles |
+| `AUCTIONREPORT_TITULO_SAUDE` | Health fund title |
+| `AUCTIONREPORT_SUBTITULO_PREFEITURA` | Prefeitura subtitle |
+| `AUCTIONREPORT_SUBTITULO_EDUCACAO` | Educação subtitle |
+| `AUCTIONREPORT_SUBTITULO_SAUDE` | Saúde subtitle |
+| `AUCTIONREPORT_AGENCIA` | Default bank branch |
+| `AUCTIONREPORT_CNPJ_MUNICIPIO` | Municipality CNPJ |
+| `AUCTIONREPORT_CNPJ_SAUDE` | Health fund CNPJ |
+| `AUCTIONREPORT_CONTA_PREFEITURA` | Prefeitura checking account |
+| `AUCTIONREPORT_CONTA_EDUCACAO` | Educação checking account |
+| `AUCTIONREPORT_CONTA_SAUDE` | Saúde checking account |
+
+You can also change these values later in the **Grupos e contas** menu.
 
 ## Usage
 
@@ -391,6 +417,8 @@ Or directly:
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
+The tests use the fictitious defaults; no `.env` file is required.
+
 The tests include:
 
 - reproduction of the real lot 14 (211 assets, R$ 50.00);
@@ -413,6 +441,7 @@ AuctionReport/
   leilao/
     money.py        money, Brazilian formatting and value splitting
     models.py       asset, lot, group and result models
+    config.py       municipality defaults loaded from .env
     pdfs.py         reading reports and the bill of law
     banco.py        SQLite storage, auction folders and migration
     atualizacao.py  reconciliation of new PDFs with an existing auction
@@ -436,6 +465,7 @@ AuctionReport/
   instalar.bat / iniciar.bat   Windows setup and launcher
   instalar.sh / iniciar.sh     Linux setup and launcher
   testar.sh                    test runner on Linux
+  .env.example                 fictitious configuration template
   README.md
   README.pt-BR.md
 ```

@@ -11,7 +11,7 @@
 ## Sobre
 
 O AuctionReport é uma ferramenta local em Python que monta os relatórios de bens de
-leilão do município brasileiro. Ela lê os PDFs exportados pelo sistema BIRT
+leilão de um município brasileiro. Ela lê os PDFs exportados pelo sistema BIRT
 (Prefeitura, Saúde e, se houver, Educação), lê o projeto de lei que define os lotes e
 guarda o leilão em um banco SQLite.
 
@@ -74,7 +74,31 @@ cd AuctionReport
 Se o script não estiver executável, use `bash instalar.sh` ou execute antes
 `chmod +x instalar.sh iniciar.sh testar.sh`.
 
-## Uso
+## Configuração
+
+O repositório contém apenas valores fictícios. Para usar os dados reais do município:
+
+1. Copie `.env.example` para `.env`.
+2. Preencha o título do município, a agência, os CNPJs e as contas correntes.
+3. Mantenha o `.env` apenas no seu computador. Ele é ignorado pelo Git.
+
+As variáveis são:
+
+| Variável | Para que serve |
+|---|---|
+| `AUCTIONREPORT_MUNICIPIO` | Nome do município usado nos títulos dos relatórios |
+| `AUCTIONREPORT_TITULO_SAUDE` | Título do fundo de saúde |
+| `AUCTIONREPORT_SUBTITULO_PREFEITURA` | Subtítulo da Prefeitura |
+| `AUCTIONREPORT_SUBTITULO_EDUCACAO` | Subtítulo da Educação |
+| `AUCTIONREPORT_SUBTITULO_SAUDE` | Subtítulo da Saúde |
+| `AUCTIONREPORT_AGENCIA` | Agência bancária padrão |
+| `AUCTIONREPORT_CNPJ_MUNICIPIO` | CNPJ do município |
+| `AUCTIONREPORT_CNPJ_SAUDE` | CNPJ do fundo de saúde |
+| `AUCTIONREPORT_CONTA_PREFEITURA` | Conta corrente da Prefeitura |
+| `AUCTIONREPORT_CONTA_EDUCACAO` | Conta corrente da Educação |
+| `AUCTIONREPORT_CONTA_SAUDE` | Conta corrente da Saúde |
+
+Esses valores também podem ser alterados depois no menu **Grupos e contas**.
 
 ### Windows
 
@@ -391,6 +415,8 @@ Ou diretamente:
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
+Os testes usam os valores fictícios padrão; não é necessário ter um `.env`.
+
 Os testes incluem:
 
 - reprodução do lote 14 real (211 bens, R$ 50,00);
@@ -413,6 +439,7 @@ AuctionReport/
   leilao/
     money.py        dinheiro, formatação brasileira e rateio
     models.py       modelos de bem, lote, grupo e resultado
+    config.py       dados padrão do município carregados do .env
     pdfs.py         leitura dos relatórios e do projeto de lei
     banco.py        persistência SQLite, pastas de leilão e migração
     atualizacao.py  reconciliação de PDFs novos com um leilão existente
@@ -436,6 +463,7 @@ AuctionReport/
   instalar.bat / iniciar.bat   instalação e execução no Windows
   instalar.sh / iniciar.sh     instalação e execução no Linux
   testar.sh                    execução dos testes no Linux
+  .env.example                 modelo de configuração com valores fictícios
   README.md
   README.pt-BR.md
 ```
