@@ -23,13 +23,6 @@ fi
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements.txt
 
-if ! .venv/bin/python -c 'import tkinter' >/dev/null 2>&1; then
-    echo
-    echo "Aviso: tkinter indisponível. A TUI funcionará, mas sem o seletor"
-    echo "gráfico de arquivos; será preciso digitar o caminho dos arquivos."
-    echo "No Arch Linux, instale com: sudo pacman -S tk"
-fi
-
 if ! command -v soffice >/dev/null 2>&1 && ! command -v libreoffice >/dev/null 2>&1; then
     echo
     echo "Aviso: LibreOffice não encontrado. A exportação em PDF ficará"
