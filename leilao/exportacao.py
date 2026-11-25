@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from .models import ReportData
+from .models import ReportData, norm
 from .pdf_export import PdfExportError, converter_xlsx_para_pdf
 from .relatorio import gerar_relatorio
 
@@ -19,8 +20,15 @@ class ResultadoExportacao:
     pdf: Path | None = None
 
 
+def _nome_seguro(nome: str) -> str:
+    texto = norm(nome).lower()
+    texto = re.sub(r"[^a-z0-9._-]+", "-", texto)
+    return texto.strip("-._")
+
+
 def _nome_base(pasta: Path, nome: str | None) -> str:
-    base = (nome or f"relatorio_{datetime.now():%Y-%m-%d_%H%M}").strip()
+    padrao = f"relatorio_{datetime.now():%Y-%m-%d_%H%M}"
+    base = _nome_seguro(nome or padrao) or padrao
     candidato = base
     contador = 2
     while (pasta / f"{candidato}.xlsx").exists() or (pasta / f"{candidato}.pdf").exists():

@@ -179,6 +179,8 @@ def _cmd_migrar(args: argparse.Namespace) -> int:
 
 def _cmd_exportar(args: argparse.Namespace) -> int:
     db_path = Path(args.banco).expanduser()
+    if db_path.is_dir():
+        db_path = db_path / BANCO_NOME
     try:
         data = carregar_leilao(db_path)
     except ValueError as exc:
@@ -238,6 +240,8 @@ def _cmd_gerar(args: argparse.Namespace) -> int:
 
 def _ler_leilao(caminho: str | Path) -> ReportData:
     caminho = Path(caminho)
+    if caminho.is_dir():
+        caminho = caminho / BANCO_NOME
     if caminho.suffix.lower() == ".db":
         return carregar_leilao(caminho)
     return ler_entrada(caminho)

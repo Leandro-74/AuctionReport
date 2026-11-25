@@ -55,13 +55,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(codigo, 0, saida)
         self.assertTrue(caminho_banco(leilao).exists())
 
-        codigo, saida = self._rodar("conferir", str(caminho_banco(leilao)))
+        codigo, saida = self._rodar("conferir", str(leilao))
         self.assertEqual(codigo, 0, saida)
         self.assertIn("Tudo certo", saida)
 
         codigo, saida = self._rodar(
             "exportar",
-            str(caminho_banco(leilao)),
+            str(leilao),
             "--formato",
             "xlsx",
             "--saida",

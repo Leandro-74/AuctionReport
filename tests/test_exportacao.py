@@ -98,6 +98,11 @@ class ExportacaoTests(unittest.TestCase):
         self.assertEqual(primeiro.xlsx.name, "teste.xlsx")
         self.assertEqual(segundo.xlsx.name, "teste_2.xlsx")
 
+    def test_nome_invalido_nao_sai_da_pasta(self):
+        resultado = exportar(_data(), self.destino, "xlsx", nome_base="../fora")
+        self.assertEqual(resultado.xlsx.parent, self.destino)
+        self.assertEqual(resultado.xlsx.name, "fora.xlsx")
+
 
 if __name__ == "__main__":
     unittest.main()
