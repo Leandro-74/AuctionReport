@@ -1,9 +1,10 @@
-"""Interface TUI do AuctionReport, com seleção nativa de arquivos."""
+"""Interface TUI do AuctionReport, com entrada de caminhos no terminal."""
 
 from __future__ import annotations
 
 import copy
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -83,88 +84,55 @@ def _open_file(path: str | Path) -> None:
         console.print("[yellow]Não foi possível abrir o arquivo automaticamente.[/]")
 
 
-def _tk_root():
-    import tkinter as tk
+def _limpar_caminho(texto: str) -> str:
+    """Normalize a path typed or dragged into the terminal."""
+    texto = (texto or "").strip()
+    if not texto:
+        return ""
+    if os.name == "nt":
+        if len(texto) >= 2 and texto[0] == texto[-1] and texto[0] in ("'", '"'):
+            texto = texto[1:-1].strip()
+    else:
+        # Linux terminals usually escape spaces or wrap the path in quotes
+        # when the user drags a file into the window.
+        if not (len(texto) >= 2 and texto[1] == ":"):
+            try:
+                partes = shlex.split(texto)
+            except ValueError:
+                partes = []
+            if len(partes) == 1:
+                texto = partes[0].strip()
+    if texto.startswith("file://"):
+        from urllib.parse import unquote, urlparse
 
-    root = tk.Tk()
-    root.withdraw()
-    try:
-        root.attributes("-topmost", True)
-    except Exception:
-        pass
-    return root
-
-
-def _diretorio_inicial(inicial: Path | None) -> str:
-    if inicial is None:
-        return str(Path.cwd())
-    return str(inicial if inicial.is_dir() else inicial.parent)
-
-
-def selecionar_pdf(titulo: str, inicial: Path | None = None) -> str:
-    try:
-        from tkinter import filedialog
-
-        root = _tk_root()
-        caminho = filedialog.askopenfilename(
-            title=titulo,
-            initialdir=_diretorio_inicial(inicial),
-            filetypes=[("PDF", "*.pdf"), ("Todos os arquivos", "*.*")],
-        )
-        root.destroy()
-        return caminho or ""
-    except Exception:
-        return Prompt.ask(f"{titulo} (caminho do PDF, Enter para pular)", default="")
+        texto = unquote(urlparse(texto).path)
+        if os.name == "nt" and len(texto) >= 3 and texto[0] == "/" and texto[2] == ":":
+            texto = texto[1:]
+    return texto
 
 
-def selecionar_xlsx(titulo: str, inicial: Path | None = None) -> str:
-    try:
-        from tkinter import filedialog
-
-        root = _tk_root()
-        caminho = filedialog.askopenfilename(
-            title=titulo,
-            initialdir=_diretorio_inicial(inicial),
-            filetypes=[("Excel", "*.xlsx"), ("Todos os arquivos", "*.*")],
-        )
-        root.destroy()
-        return caminho or ""
-    except Exception:
-        return Prompt.ask(f"{titulo} (caminho do .xlsx)", default="")
+def _pedir_caminho(titulo: str, dica: str) -> str:
+    return _limpar_caminho(
+        Prompt.ask(f"{titulo} ({dica})", default="", show_default=False)
+    )
 
 
-def selecionar_banco(titulo: str, inicial: Path | None = None) -> str:
-    try:
-        from tkinter import filedialog
-
-        root = _tk_root()
-        caminho = filedialog.askopenfilename(
-            title=titulo,
-            initialdir=_diretorio_inicial(inicial),
-            filetypes=[
-                ("Banco do leilão", "*.db"),
-                ("Todos os arquivos", "*.*"),
-            ],
-        )
-        root.destroy()
-        return caminho or ""
-    except Exception:
-        return Prompt.ask(f"{titulo} (caminho do .db)", default="")
+def selecionar_pdf(titulo: str) -> str:
+    return _pedir_caminho(
+        titulo, "arraste o PDF ou digite o caminho; Enter para pular"
+    )
 
 
-def selecionar_pasta(titulo: str, inicial: Path | None = None) -> str:
-    try:
-        from tkinter import filedialog
+def selecionar_xlsx(titulo: str) -> str:
+    return _pedir_caminho(titulo, "arraste o .xlsx ou digite o caminho")
 
-        root = _tk_root()
-        caminho = filedialog.askdirectory(
-            title=titulo,
-            initialdir=_diretorio_inicial(inicial),
-        )
-        root.destroy()
-        return caminho or ""
-    except Exception:
-        return Prompt.ask(f"{titulo} (caminho da pasta)", default="")
+
+def selecionar_banco(titulo: str) -> str:
+    return _pedir_caminho(titulo, "arraste o leilao.db ou digite o caminho")
+
+
+def selecionar_pasta(titulo: str) -> str:
+    return _pedir_caminho(titulo, "arraste a pasta ou digite o caminho")
 
 
 def _pause() -> None:
@@ -287,7 +255,7 @@ def _ensure_data(estado: Estado) -> bool:
         return True
     console.print("[yellow]Nenhum leilão carregado.[/]")
     if _confirm("Abrir um leilão agora?", default=True):
-        caminho = selecionar_banco("Abrir leilão", estado.banco)
+        caminho = selecionar_banco("Abrir leilão")
         if not caminho:
             return False
         return _carregar(estado, caminho)
@@ -864,9 +832,7 @@ def _grupos(estado: Estado) -> None:
 
 
 def _pasta_do_leilao(estado: Estado) -> Path | None:
-    caminho = selecionar_pasta(
-        "Selecione ou crie a pasta do leilão", estado.leilao
-    )
+    caminho = selecionar_pasta("Selecione ou crie a pasta do leilão")
     if not caminho:
         console.print("[dim]Cancelado.[/]")
         _pause()
@@ -891,8 +857,8 @@ def novo_leilao(estado: Estado) -> None:
     _banner()
     console.print(
         Panel(
-            "Selecione os PDFs do sistema.\n"
-            "Cancelar no seletor = pular aquele arquivo.",
+            "Informe o caminho dos PDFs do sistema. Arraste o arquivo para o\n"
+            "terminal ou digite o caminho. Enter em branco = pular.",
             title="Novo leilão",
             border_style="blue",
         )
@@ -904,7 +870,7 @@ def novo_leilao(estado: Estado) -> None:
         ("Educação", "Relatório da Educação (opcional)"),
     ):
         console.print(f"[bold]{titulo}[/]")
-        caminho = selecionar_pdf(titulo, estado.leilao or estado.banco)
+        caminho = selecionar_pdf(titulo)
         if caminho:
             relatorios.append((label, caminho))
             console.print(f"  [green]✓[/] {caminho}")
@@ -914,7 +880,7 @@ def novo_leilao(estado: Estado) -> None:
         _erro("Nenhum relatório selecionado.")
         _pause()
         return
-    pl = selecionar_pdf("Projeto de Lei", estado.leilao or estado.banco)
+    pl = selecionar_pdf("Projeto de Lei")
     if pl:
         console.print(f"[green]✓[/] Projeto de lei: {pl}")
     else:
@@ -1010,9 +976,7 @@ def migrar_leilao(estado: Estado) -> None:
             border_style="blue",
         )
     )
-    entrada = selecionar_xlsx(
-        "Abrir planilha de entrada", estado.leilao or estado.banco
-    )
+    entrada = selecionar_xlsx("Abrir planilha de entrada")
     if not entrada:
         console.print("[dim]Cancelado.[/]")
         _pause()
@@ -1120,7 +1084,7 @@ def atualizar_leilao(estado: Estado) -> None:
         ("Educação", "Relatório atualizado da Educação (opcional)"),
     ):
         console.print(f"[bold]{titulo}[/]")
-        caminho = selecionar_pdf(titulo, estado.leilao)
+        caminho = selecionar_pdf(titulo)
         if caminho:
             relatorios.append((label, caminho))
             console.print(f"  [green]✓[/] {caminho}")
@@ -1130,7 +1094,7 @@ def atualizar_leilao(estado: Estado) -> None:
         _erro("Nenhum relatório selecionado.")
         _pause()
         return
-    pl = selecionar_pdf("Projeto de Lei atualizado", estado.leilao)
+    pl = selecionar_pdf("Projeto de Lei atualizado")
     if pl:
         console.print(f"[green]✓[/] Projeto de lei: {pl}")
     else:
@@ -1340,9 +1304,7 @@ def main_tui() -> int:
             if opcao == "1":
                 novo_leilao(estado)
             elif opcao == "2":
-                caminho = selecionar_banco(
-                    "Abrir leilão", estado.banco or estado.leilao
-                )
+                caminho = selecionar_banco("Abrir leilão")
                 if caminho:
                     if _carregar(estado, caminho):
                         editar_dashboard(estado)
