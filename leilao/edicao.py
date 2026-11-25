@@ -52,11 +52,13 @@ def filtrar_bens(
     texto: str = "",
     lote: str = "",
     categoria: str = "",
+    origem: str = "",
 ) -> list[Asset]:
-    """Filtra bens por código/faixa, texto da descrição, lote e categoria."""
+    """Filtra bens por código/faixa, texto, lote, categoria e origem."""
     lote = normalize_lot(lote)
     texto_norm = norm(texto).strip()
     categoria_norm = norm(categoria).strip()
+    origem_norm = norm(origem).strip()
     resultado: list[Asset] = []
     for bem in data.bens:
         if codigos and not codigo_selecionado(bem.codigo, codigos):
@@ -66,6 +68,8 @@ def filtrar_bens(
         if texto_norm and texto_norm not in norm(bem.descricao):
             continue
         if categoria_norm and categoria_norm not in norm(bem.categoria):
+            continue
+        if origem_norm and norm(bem.origem) != origem_norm:
             continue
         resultado.append(bem)
     return resultado
@@ -84,16 +88,33 @@ def encontrar_lote(data: ReportData, numero: str) -> Lot:
     raise EdicaoError(f"Lote {numero} não encontrado.")
 
 
-def encontrar_bem(data: ReportData, codigo: str) -> Asset:
+def encontrar_bem(data: ReportData, codigo: str, origem: str = "") -> Asset:
     alvo = (codigo or "").strip()
-    encontrados = [bem for bem in data.bens if (bem.codigo or "").strip() == alvo]
+    origem_norm = norm(origem).strip()
+    encontrados = [
+        bem
+        for bem in data.bens
+        if (bem.codigo or "").strip() == alvo
+        and (not origem_norm or norm(bem.origem) == origem_norm)
+    ]
     if not encontrados:
-        raise EdicaoError(f"Bem com código {codigo} não encontrado.")
+        detalhe = f" na origem {origem}" if origem.strip() else ""
+        raise EdicaoError(f"Bem com código {codigo}{detalhe} não encontrado.")
     if len(encontrados) > 1:
-        lotes = ", ".join(sorted({bem.lote or "(sem lote)" for bem in encontrados}))
+        if origem_norm:
+            lotes = ", ".join(
+                sorted({bem.lote or "(sem lote)" for bem in encontrados})
+            )
+            raise EdicaoError(
+                f"O código {codigo} aparece {len(encontrados)} vezes na origem "
+                f"{origem} (lotes: {lotes})."
+            )
+        origens = ", ".join(
+            sorted({bem.origem or "(sem origem)" for bem in encontrados})
+        )
         raise EdicaoError(
-            f"O código {codigo} aparece {len(encontrados)} vezes (lotes: {lotes}). "
-            "Use a edição por linha ou mova os bens por faixa."
+            f"O código {codigo} aparece {len(encontrados)} vezes "
+            f"({origens}). Informe a origem do bem."
         )
     return encontrados[0]
 
@@ -133,13 +154,19 @@ def mover_bens(
     texto: str = "",
     lote_origem: str = "",
     categoria: str = "",
+    origem: str = "",
 ) -> list[Asset]:
     destino = normalize_lot(lote_destino)
     if not destino:
         raise EdicaoError("Informe o lote de destino.")
     encontrar_lote(data, destino)
     bens = filtrar_bens(
-        data, codigos=codigos, texto=texto, lote=lote_origem, categoria=categoria
+        data,
+        codigos=codigos,
+        texto=texto,
+        lote=lote_origem,
+        categoria=categoria,
+        origem=origem,
     )
     if not bens:
         return []
@@ -157,6 +184,8 @@ def editar_bem(
     data: ReportData,
     codigo: str,
     *,
+    origem: str = "",
+    nova_origem: str | None = None,
     descricao: str | None = None,
     novo_codigo: str | None = None,
     lote: str | None = None,
@@ -167,11 +196,13 @@ def editar_bem(
     valor_contabil: object | None = None,
     observacao: str | None = None,
 ) -> Asset:
-    bem = encontrar_bem(data, codigo)
+    bem = encontrar_bem(data, codigo, origem)
     if descricao is not None and descricao.strip():
         bem.descricao = descricao.strip()
     if novo_codigo is not None and novo_codigo.strip():
         bem.codigo = novo_codigo.strip()
+    if nova_origem is not None and nova_origem.strip():
+        bem.origem = nova_origem.strip()
     if lote is not None:
         lote_norm = normalize_lot(lote)
         if lote_norm:
@@ -205,12 +236,15 @@ def substituir_descricao(
     *,
     lote: str = "",
     categoria: str = "",
+    origem: str = "",
 ) -> list[Asset]:
     if not antigo.strip():
         raise EdicaoError("Informe o texto a substituir.")
     padrao = re.compile(re.escape(antigo.strip()), re.IGNORECASE)
     alterados: list[Asset] = []
-    for bem in filtrar_bens(data, lote=lote, categoria=categoria):
+    for bem in filtrar_bens(
+        data, lote=lote, categoria=categoria, origem=origem
+    ):
         if padrao.search(bem.descricao):
             bem.descricao = padrao.sub(novo.strip(), bem.descricao)
             alterados.append(bem)
@@ -262,6 +296,7 @@ def adicionar_bem(
     descricao: str,
     tipo: str = "Bens Móveis",
     categoria: str = "Outros",
+    origem: str = "",
     conta_credito: str = "",
     conta_debito: str = "",
     valor_contabil: object | None = None,
@@ -284,6 +319,7 @@ def adicionar_bem(
         codigo=codigo.strip(),
         descricao=descricao.strip(),
         categoria=categoria.strip() or "Outros",
+        origem=origem.strip(),
         conta_credito=conta_credito.strip(),
         conta_debito=conta_debito.strip(),
         valor_contabil=valor,
@@ -301,9 +337,15 @@ def remover_bens(
     texto: str = "",
     lote: str = "",
     categoria: str = "",
+    origem: str = "",
 ) -> list[Asset]:
     bens = filtrar_bens(
-        data, codigos=codigos, texto=texto, lote=lote, categoria=categoria
+        data,
+        codigos=codigos,
+        texto=texto,
+        lote=lote,
+        categoria=categoria,
+        origem=origem,
     )
     if not bens:
         return []

@@ -4,11 +4,13 @@ from decimal import Decimal
 from pathlib import Path
 
 from leilao.edicao import (
+    EdicaoError,
     adicionar_bem,
     adicionar_lote,
     codigo_selecionado,
     editar_bem,
     editar_lote,
+    encontrar_bem,
     filtrar_bens,
     mover_bens,
     remover_bens,
@@ -51,6 +53,8 @@ class EdicaoTests(unittest.TestCase):
             Asset(lote="02", codigo="4", descricao="ARMARIO", categoria="Mobiliário"),
             Asset(lote="02", codigo="5", descricao="ESTANTE", categoria="Mobiliário"),
         ]
+        for bem in self.bens:
+            bem.origem = "Prefeitura"
         write_entrada(self.entrada, [self.grupo], self.lotes, self.bens)
         self.data = ler_entrada(self.entrada)
         self.assertFalse(self.data.erros, [str(e) for e in self.data.erros])
@@ -112,6 +116,31 @@ class EdicaoTests(unittest.TestCase):
     def test_filtro_por_texto_e_lote(self):
         self.assertEqual(len(filtrar_bens(self.data, texto="mesa", lote="01")), 2)
         self.assertEqual(len(filtrar_bens(self.data, categoria="Mobiliário")), 5)
+
+    def test_mesmo_codigo_em_origens_diferentes(self):
+        saude = Asset(
+            lote="02",
+            codigo="1",
+            descricao="MACA",
+            categoria="Hospitalar",
+            origem="Saúde",
+        )
+        self.data.bens.append(saude)
+
+        with self.assertRaises(EdicaoError):
+            encontrar_bem(self.data, "1")
+        self.assertEqual(encontrar_bem(self.data, "1", origem="Saúde"), saude)
+        self.assertEqual(len(filtrar_bens(self.data, origem="Saúde")), 1)
+
+        movidos = mover_bens(
+            self.data, lote_destino="02", codigos="1", origem="Prefeitura"
+        )
+        self.assertEqual(len(movidos), 1)
+        self.assertEqual(movidos[0].origem, "Prefeitura")
+        self.assertEqual(saude.lote, "02")
+
+        editar_bem(self.data, "1", origem="Saúde", descricao="MACA NOVA")
+        self.assertEqual(saude.descricao, "MACA NOVA")
 
 
 if __name__ == "__main__":
