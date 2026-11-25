@@ -994,33 +994,40 @@ def build_results(data: ReportData) -> None:
 
     data.resultados.sort(key=lambda r: r.lote.numero_int)
 
-    # Conferências de códigos e contas.
-    codigos_lote: dict[str, list[str]] = {}
-    codigos_geral: dict[str, list[str]] = {}
+    # Conferências de códigos e contas. O mesmo código pode existir em
+    # origens diferentes, então a origem faz parte da chave.
+    codigos_lote: dict[tuple[str, str, str], list[Asset]] = {}
+    codigos_geral: dict[tuple[str, str], set[str]] = {}
+    origens_codigo: dict[tuple[str, str], str] = {}
     for resultado in data.resultados:
         for bem in resultado.bens:
             if not bem.codigo:
                 continue
-            codigos_lote.setdefault(f"{resultado.lote.numero}|{bem.codigo}", []).append(
-                bem.codigo
-            )
-            codigos_geral.setdefault(bem.codigo, []).append(resultado.lote.numero)
-    for chave, valores in codigos_lote.items():
-        if len(valores) > 1:
-            numero = chave.split("|", 1)[0]
+            chave = (norm(bem.origem), bem.codigo)
+            codigos_lote.setdefault(
+                (resultado.lote.numero, chave[0], chave[1]), []
+            ).append(bem)
+            codigos_geral.setdefault(chave, set()).add(resultado.lote.numero)
+            origens_codigo[chave] = bem.origem
+    for (numero, _, codigo), bens_mesmo in codigos_lote.items():
+        if len(bens_mesmo) > 1:
+            origem = bens_mesmo[0].origem or "sem origem"
             data.issues.append(
                 Issue(
                     "aviso",
-                    f"O bem {valores[0]} aparece {len(valores)} vezes no lote {numero}.",
+                    f"O bem {codigo} ({origem}) aparece {len(bens_mesmo)} "
+                    f"vezes no lote {numero}.",
                 )
             )
-    for codigo, lotes_codigo in codigos_geral.items():
-        if len(set(lotes_codigo)) > 1:
+    for chave, lotes_codigo in codigos_geral.items():
+        if len(lotes_codigo) > 1:
+            codigo = chave[1]
+            origem = origens_codigo.get(chave) or "sem origem"
             data.issues.append(
                 Issue(
                     "aviso",
-                    f"O bem {codigo} aparece em mais de um lote: "
-                    f"{', '.join(sorted(set(lotes_codigo)))}.",
+                    f"O bem {codigo} ({origem}) aparece em mais de um lote: "
+                    f"{', '.join(sorted(lotes_codigo))}.",
                 )
             )
 

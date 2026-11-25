@@ -1,9 +1,10 @@
+import copy
 import unittest
 from decimal import Decimal
 from unittest import mock
 
-from leilao.entrada import importar_pdfs
-from leilao.models import Asset, LawLot
+from leilao.entrada import DEFAULT_GROUPS, build_results, importar_pdfs
+from leilao.models import Asset, LawLot, Lot, ReportData
 
 
 def _law():
@@ -71,6 +72,47 @@ class ImportacaoTests(unittest.TestCase):
         self.assertEqual(len(lotes), 1)
         self.assertFalse(
             any("mais de um bem" in issue.mensagem for issue in issues)
+        )
+
+    def test_mesmo_codigo_em_origens_diferentes_nao_gera_aviso(self):
+        data = ReportData(
+            grupos=[
+                copy.deepcopy(DEFAULT_GROUPS["Prefeitura"]),
+                copy.deepcopy(DEFAULT_GROUPS["Saúde"]),
+            ],
+            lotes=[
+                Lot(
+                    numero="01",
+                    valor=Decimal("100.00"),
+                    grupo="Prefeitura",
+                    secao="Bens",
+                ),
+                Lot(
+                    numero="02",
+                    valor=Decimal("100.00"),
+                    grupo="Saúde",
+                    secao="Bens",
+                ),
+            ],
+            bens=[
+                Asset(
+                    lote="01",
+                    codigo="3500",
+                    descricao="MESA",
+                    origem="Prefeitura",
+                ),
+                Asset(
+                    lote="02",
+                    codigo="3500",
+                    descricao="MACA",
+                    origem="Saúde",
+                ),
+            ],
+        )
+        build_results(data)
+        self.assertEqual(len(data.resultados), 2)
+        self.assertFalse(
+            any("mais de um lote" in issue.mensagem for issue in data.issues)
         )
 
 
