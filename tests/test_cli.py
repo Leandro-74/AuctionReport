@@ -7,7 +7,12 @@ from decimal import Decimal
 from pathlib import Path
 from unittest import mock
 
-from leilao.banco import BANCO_NOME, caminho_banco, criar_estrutura
+from leilao.banco import (
+    BANCO_NOME,
+    caminho_banco,
+    carregar_leilao,
+    criar_estrutura,
+)
 from leilao.cli import main
 from leilao.entrada import DEFAULT_GROUPS, write_entrada
 from leilao.models import Asset, Issue, Lot, ReportData
@@ -103,6 +108,51 @@ class CliTests(unittest.TestCase):
         self.assertTrue(caminho_banco(leilao).exists())
         self.assertTrue((leilao / "documentos" / "prefeitura.pdf").exists())
         self.assertTrue((leilao / "documentos" / "pl.pdf").exists())
+
+    def test_atualizar_mostra_e_aplica(self):
+        entrada = self.raiz / "entrada.xlsx"
+        leilao = self.raiz / "2025-2"
+        pdf = self.raiz / "prefeitura.pdf"
+        pdf.write_bytes(b"%PDF")
+        write_entrada(entrada, _grupos(), _lotes(), _bens())
+        self._rodar("migrar", str(entrada), "--pasta", str(leilao))
+
+        novos = [
+            Asset(
+                codigo="1",
+                descricao="MESA NOVA",
+                origem="Prefeitura",
+                categoria="Mobiliário",
+            ),
+            Asset(
+                codigo="2",
+                descricao="CADEIRA NOVA",
+                origem="Prefeitura",
+                categoria="Mobiliário",
+            ),
+        ]
+        with mock.patch(
+            "leilao.atualizacao.parse_asset_report", return_value=novos
+        ):
+            codigo, saida = self._rodar(
+                "atualizar", str(leilao), "--prefeitura", str(pdf)
+            )
+            self.assertEqual(codigo, 0, saida)
+            self.assertIn("Nada foi alterado", saida)
+            antigo = carregar_leilao(caminho_banco(leilao))
+            self.assertIn("MESA", [bem.descricao for bem in antigo.bens])
+
+            codigo, saida = self._rodar(
+                "atualizar",
+                str(leilao),
+                "--prefeitura",
+                str(pdf),
+                "--aplicar",
+            )
+        self.assertEqual(codigo, 0, saida)
+        data = carregar_leilao(caminho_banco(leilao))
+        self.assertIn("MESA NOVA", [bem.descricao for bem in data.bens])
+        self.assertIn("CADEIRA NOVA", [bem.descricao for bem in data.bens])
 
     def test_novo_continua_quando_documentos_falham(self):
         prefeitura = self.raiz / "prefeitura.pdf"

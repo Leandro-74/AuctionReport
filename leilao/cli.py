@@ -7,6 +7,7 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
+from .atualizacao import planejar_atualizacao
 from .banco import (
     BANCO_NOME,
     caminho_banco,
@@ -14,6 +15,7 @@ from .banco import (
     copiar_documentos,
     criar_leilao,
     migrar_planilha,
+    salvar_leilao,
 )
 from .entrada import importar_pdfs, ler_entrada, modelo_entrada, write_entrada
 from .exportacao import FORMATOS, exportar
@@ -163,6 +165,87 @@ def _cmd_novo(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_atualizar(args: argparse.Namespace) -> int:
+    db_path = Path(args.banco).expanduser()
+    if db_path.is_dir():
+        db_path = db_path / BANCO_NOME
+    relatorios: list[tuple[str, str]] = []
+    for label, caminho in (
+        ("Prefeitura", args.prefeitura),
+        ("Saúde", args.saude),
+        ("Educação", args.educacao),
+    ):
+        if caminho:
+            if not Path(caminho).exists():
+                print(f"ERRO: arquivo não encontrado: {caminho}")
+                return 1
+            relatorios.append((label, caminho))
+    if not relatorios:
+        print("ERRO: informe pelo menos --prefeitura ou --saude.")
+        return 1
+    if args.pl and not Path(args.pl).exists():
+        print(f"ERRO: arquivo não encontrado: {args.pl}")
+        return 1
+
+    try:
+        data = carregar_leilao(db_path)
+        plano = planejar_atualizacao(data, relatorios, args.pl)
+    except ValueError as exc:
+        print(f"ERRO: {exc}")
+        return 1
+
+    _print_issues(plano.avisos)
+    print(
+        f"\nNovos bens: {len(plano.novos)} | "
+        f"Alterados: {len(plano.alterados)} | "
+        f"Ausentes: {len(plano.ausentes)} | "
+        f"Novos lotes: {len(plano.novos_lotes)} | "
+        f"Novos grupos: {len(plano.novos_grupos)}"
+    )
+    for bem in plano.novos[:20]:
+        print(f"  NOVO: {bem.codigo or '(sem código)'} ({bem.origem or '-'})")
+    for alteracao in plano.alterados[:20]:
+        campos = ", ".join(
+            f"{campo}: {antigo!r} -> {novo!r}"
+            for campo, (antigo, novo) in alteracao.campos.items()
+        )
+        print(
+            f"  ALTERADO: {alteracao.bem.codigo or '(sem código)'} "
+            f"({alteracao.bem.origem or '-'}): {campos}"
+        )
+    for bem in plano.ausentes[:20]:
+        print(f"  AUSENTE: {bem.codigo or '(sem código)'} ({bem.origem or '-'})")
+    for lote in plano.novos_lotes:
+        print(f"  NOVO LOTE: {lote.numero} ({lote.grupo})")
+
+    if not plano.tem_mudancas:
+        print("\nNenhuma alteração para aplicar.")
+        return 0
+    if not args.aplicar:
+        print("\nNada foi alterado. Use --aplicar para gravar a atualização.")
+        return 0
+
+    plano.aplicar(data)
+    try:
+        data = salvar_leilao(db_path, data)
+    except (ValueError, OSError) as exc:
+        print(f"ERRO: {exc}")
+        return 1
+
+    documentos = list(relatorios)
+    if args.pl:
+        documentos.append(("Projeto de Lei", args.pl))
+    try:
+        copiar_documentos(db_path, documentos)
+    except (ValueError, OSError) as exc:
+        print(f"AVISO: os PDFs não puderam ser copiados: {exc}")
+
+    _print_issues(data.issues)
+    _print_resumo(data)
+    print(f"\nLeilão atualizado em: {db_path.resolve()}")
+    return 0
+
+
 def _cmd_migrar(args: argparse.Namespace) -> int:
     pasta = Path(args.pasta).expanduser()
     try:
@@ -287,6 +370,21 @@ def main(argv: list[str] | None = None) -> int:
         "--pasta", required=True, help="pasta do leilão a criar"
     )
     p_novo.set_defaults(func=_cmd_novo)
+
+    p_at = sub.add_parser(
+        "atualizar", help="compara PDFs novos com o banco do leilão"
+    )
+    p_at.add_argument("banco", nargs="?", default=BANCO_NOME)
+    p_at.add_argument("--prefeitura", help="PDF novo da Prefeitura")
+    p_at.add_argument("--saude", help="PDF novo da Saúde")
+    p_at.add_argument("--educacao", help="PDF novo da Educação")
+    p_at.add_argument("--pl", help="PDF do projeto de lei")
+    p_at.add_argument(
+        "--aplicar",
+        action="store_true",
+        help="grava as alterações (sem esta opção apenas mostra o resumo)",
+    )
+    p_at.set_defaults(func=_cmd_atualizar)
 
     p_mig = sub.add_parser(
         "migrar", help="converte uma planilha de entrada antiga em banco"
