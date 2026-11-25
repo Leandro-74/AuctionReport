@@ -74,9 +74,17 @@ def _grupo_para_origem(
             return grupo
     padrao = DEFAULT_GROUPS.get(nome)
     if padrao and padrao.cnpj:
+        outros = {
+            norm(chave)
+            for chave in DEFAULT_GROUPS
+            if norm(chave) != norm(nome)
+        }
         for grupo in data.grupos:
-            if grupo.cnpj.strip() == padrao.cnpj:
-                return grupo
+            if grupo.cnpj.strip() != padrao.cnpj:
+                continue
+            if norm(grupo.nome) in outros:
+                continue
+            return grupo
     for grupo in plano.novos_grupos:
         if norm(grupo.nome) == norm(nome):
             return grupo

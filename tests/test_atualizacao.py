@@ -167,6 +167,19 @@ class AtualizacaoTests(unittest.TestCase):
             )
         self.assertIn("Saúde", [grupo.nome for grupo in plano.novos_grupos])
 
+    def test_nao_reutiliza_grupo_de_outra_origem_com_mesmo_cnpj(self):
+        data = _data(("Educação",))
+        novo = _bem("9", "BEM NOVO", origem="Prefeitura")
+        with mock.patch(
+            "leilao.atualizacao.parse_asset_report", return_value=[novo]
+        ):
+            plano = planejar_atualizacao(
+                data, [("Prefeitura", "pref.pdf")]
+            )
+        self.assertIn(
+            "Prefeitura", [grupo.nome for grupo in plano.novos_grupos]
+        )
+
     def test_reutiliza_grupo_renomeado_pelo_cnpj(self):
         data = _data()
         data.grupos[0].nome = "Município"
