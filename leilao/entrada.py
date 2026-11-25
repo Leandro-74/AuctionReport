@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import re
 import shutil
 from collections import Counter
@@ -81,7 +82,7 @@ def normalize_source(label: str) -> str:
 def group_for_source(source: str) -> Group:
     nome = normalize_source(source)
     if nome in DEFAULT_GROUPS:
-        return DEFAULT_GROUPS[nome]
+        return copy.deepcopy(DEFAULT_GROUPS[nome])
     return Group(
         nome=nome,
         aba=f"Relatório Bens da {nome}",

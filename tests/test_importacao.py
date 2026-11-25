@@ -3,7 +3,12 @@ import unittest
 from decimal import Decimal
 from unittest import mock
 
-from leilao.entrada import DEFAULT_GROUPS, build_results, importar_pdfs
+from leilao.entrada import (
+    DEFAULT_GROUPS,
+    build_results,
+    group_for_source,
+    importar_pdfs,
+)
 from leilao.models import Asset, LawLot, Lot, ReportData
 
 
@@ -20,6 +25,13 @@ def _law():
 
 
 class ImportacaoTests(unittest.TestCase):
+    def test_grupo_padrao_nao_compartilha_id(self):
+        original = DEFAULT_GROUPS["Prefeitura"].id
+        grupo = group_for_source("Prefeitura")
+        self.assertIsNot(grupo, DEFAULT_GROUPS["Prefeitura"])
+        grupo.id = 12345
+        self.assertEqual(DEFAULT_GROUPS["Prefeitura"].id, original)
+
     def test_codigo_ambiguo_nao_e_associado(self):
         prefeitura = Asset(
             codigo="3500",
