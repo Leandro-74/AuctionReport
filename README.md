@@ -45,16 +45,9 @@ for review and PDF for printing.
 
 - Python 3.10 or higher.
 - Windows or Linux.
-- `tkinter` is optional. It enables the graphical file picker. Without it, the TUI
-  asks for the file and folder paths.
 - LibreOffice is optional. It is required only to export PDF.
 
 ### Note for Linux
-
-The graphical file picker needs the `tk` package:
-
-- Arch Linux: `sudo pacman -S tk`
-- Debian/Ubuntu: `sudo apt install python3-tk`
 
 PDF export needs LibreOffice:
 
@@ -124,6 +117,10 @@ After opening an auction, the editing panel shows:
 - totals by group;
 - lot by lot: value, sum of assets and status;
 - warnings and errors.
+
+When the TUI asks for a file or folder, drag it into the terminal or type/paste the
+path. Quotes and escaped spaces are handled automatically. Press Enter on an optional
+file to skip it.
 
 ## Auction folder
 
@@ -438,7 +435,7 @@ AuctionReport/
     relatorio.py    final Excel generation in the template layout
     exportacao.py   XLSX and PDF export workflow
     pdf_export.py   LibreOffice conversion
-    tui.py          TUI and native file selection
+    tui.py          TUI and path input
     cli.py          command line
   tests/
     test_money.py
@@ -463,8 +460,6 @@ AuctionReport/
 
 - **`ModuleNotFoundError`**: run the installation step again:
   `./instalar.sh` on Linux or `instalar.bat` on Windows.
-- **No file dialog on Linux**: install Tk (`sudo pacman -S tk` on Arch) and run the
-  program again. Without Tk, type the paths in the prompt.
 - **Cannot save the auction**: close other programs that may be using `leilao.db`
   and try again.
 - **PDF export fails**: install LibreOffice (`sudo pacman -S libreoffice-fresh` on

@@ -47,16 +47,9 @@ quando necessário: XLSX para revisão e PDF para impressão.
 
 - Python 3.10 ou superior.
 - Windows ou Linux.
-- O `tkinter` é opcional. Ele ativa o seletor gráfico de arquivos. Sem ele, a TUI
-  pede o caminho dos arquivos e das pastas.
 - O LibreOffice é opcional. Ele é necessário apenas para exportar PDF.
 
 ### Nota para Linux
-
-O seletor gráfico de arquivos precisa do pacote `tk`:
-
-- Arch Linux: `sudo pacman -S tk`
-- Debian/Ubuntu: `sudo apt install python3-tk`
 
 A exportação em PDF precisa do LibreOffice:
 
@@ -126,6 +119,10 @@ Depois de abrir um leilão, o painel de edição mostra:
 - totais por grupo;
 - lote a lote: valor, soma dos bens e status;
 - avisos e erros.
+
+Quando a TUI pedir um arquivo ou uma pasta, arraste para o terminal ou digite/cole o
+caminho. Aspas e espaços escapados são tratados automaticamente. Pressione Enter em um
+arquivo opcional para pular.
 
 ## Pasta do leilão
 
@@ -438,7 +435,7 @@ AuctionReport/
     relatorio.py    geração do Excel no formato do modelo
     exportacao.py   fluxo de exportação XLSX e PDF
     pdf_export.py   conversão com LibreOffice
-    tui.py          interface TUI e seleção nativa de arquivos
+    tui.py          interface TUI e entrada de caminhos
     cli.py          linha de comando
   tests/
     test_money.py
@@ -463,8 +460,6 @@ AuctionReport/
 
 - **`ModuleNotFoundError`**: rode a instalação novamente: `./instalar.sh` no Linux ou
   `instalar.bat` no Windows.
-- **Nenhuma janela de arquivos no Linux**: instale o Tk (`sudo pacman -S tk` no Arch) e
-  abra o programa de novo. Sem o Tk, digite os caminhos no prompt.
 - **Não consigo salvar o leilão**: feche outros programas que possam estar usando o
   `leilao.db` e tente novamente.
 - **A exportação em PDF falha**: instale o LibreOffice
