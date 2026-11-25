@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import os
 import subprocess
 import sys
@@ -33,13 +34,21 @@ from .edicao import (
     remover_bens,
     remover_grupo,
     remover_lote,
-    salvar_entrada,
     substituir_descricao,
 )
-from .entrada import importar_pdfs, ler_entrada, modelo_entrada, write_entrada
+from .banco import (
+    BANCO_NOME,
+    caminho_banco,
+    carregar_leilao,
+    copiar_documentos,
+    criar_leilao,
+    migrar_planilha,
+    salvar_leilao,
+)
+from .entrada import DEFAULT_GROUPS, importar_pdfs
+from .exportacao import exportar
 from .models import Asset, Issue, ReportData, norm
 from .money import format_brl
-from .relatorio import gerar_relatorio
 
 console = Console()
 
@@ -51,13 +60,14 @@ console = Console()
 
 @dataclass
 class Estado:
-    entrada: Path | None = None
-    relatorio: Path | None = None
+    leilao: Path | None = None
+    banco: Path | None = None
     data: ReportData | None = None
+    ultima_exportacao: Path | None = None
 
     @property
     def tem_dados(self) -> bool:
-        return self.data is not None and self.entrada is not None
+        return self.data is not None and self.banco is not None
 
 
 def _open_file(path: str | Path) -> None:
@@ -84,6 +94,12 @@ def _tk_root():
     return root
 
 
+def _diretorio_inicial(inicial: Path | None) -> str:
+    if inicial is None:
+        return str(Path.cwd())
+    return str(inicial if inicial.is_dir() else inicial.parent)
+
+
 def selecionar_pdf(titulo: str, inicial: Path | None = None) -> str:
     try:
         from tkinter import filedialog
@@ -91,7 +107,7 @@ def selecionar_pdf(titulo: str, inicial: Path | None = None) -> str:
         root = _tk_root()
         caminho = filedialog.askopenfilename(
             title=titulo,
-            initialdir=str(inicial.parent if inicial else Path.cwd()),
+            initialdir=_diretorio_inicial(inicial),
             filetypes=[("PDF", "*.pdf"), ("Todos os arquivos", "*.*")],
         )
         root.destroy()
@@ -107,7 +123,7 @@ def selecionar_xlsx(titulo: str, inicial: Path | None = None) -> str:
         root = _tk_root()
         caminho = filedialog.askopenfilename(
             title=titulo,
-            initialdir=str(inicial.parent if inicial else Path.cwd()),
+            initialdir=_diretorio_inicial(inicial),
             filetypes=[("Excel", "*.xlsx"), ("Todos os arquivos", "*.*")],
         )
         root.destroy()
@@ -116,24 +132,38 @@ def selecionar_xlsx(titulo: str, inicial: Path | None = None) -> str:
         return Prompt.ask(f"{titulo} (caminho do .xlsx)", default="")
 
 
-def salvar_xlsx(titulo: str, nome_padrao: str, inicial: Path | None = None) -> str:
+def selecionar_banco(titulo: str, inicial: Path | None = None) -> str:
     try:
         from tkinter import filedialog
 
         root = _tk_root()
-        caminho = filedialog.asksaveasfilename(
+        caminho = filedialog.askopenfilename(
             title=titulo,
-            initialdir=str(inicial.parent if inicial else Path.cwd()),
-            initialfile=nome_padrao,
-            defaultextension=".xlsx",
-            filetypes=[("Excel", "*.xlsx")],
+            initialdir=_diretorio_inicial(inicial),
+            filetypes=[
+                ("Banco do leilão", "*.db"),
+                ("Todos os arquivos", "*.*"),
+            ],
         )
         root.destroy()
         return caminho or ""
     except Exception:
-        return Prompt.ask(
-            f"{titulo} (caminho do .xlsx)", default=str(Path.cwd() / nome_padrao)
+        return Prompt.ask(f"{titulo} (caminho do .db)", default="")
+
+
+def selecionar_pasta(titulo: str, inicial: Path | None = None) -> str:
+    try:
+        from tkinter import filedialog
+
+        root = _tk_root()
+        caminho = filedialog.askdirectory(
+            title=titulo,
+            initialdir=_diretorio_inicial(inicial),
         )
+        root.destroy()
+        return caminho or ""
+    except Exception:
+        return Prompt.ask(f"{titulo} (caminho da pasta)", default="")
 
 
 def _pause() -> None:
@@ -197,61 +227,66 @@ def _menu(titulo: str, opcoes: list[tuple[str, str, str]]) -> str:
 
 def _status(estado: Estado) -> None:
     linhas = []
-    if estado.entrada:
-        linhas.append(f"[bold]Planilha:[/] {estado.entrada}")
+    if estado.leilao:
+        linhas.append(f"[bold]Leilão:[/] {estado.leilao}")
+        linhas.append(f"[bold]Banco:[/] {estado.banco}")
     else:
-        linhas.append("[dim]Planilha: nenhuma carregada[/]")
+        linhas.append("[dim]Leilão: nenhum carregado[/]")
     if estado.data:
         bens = len([b for b in estado.data.bens if b.lote])
         linhas.append(
             f"[bold]Conteúdo:[/] {bens} bens em {len(estado.data.resultados)} lote(s), "
             f"{len(estado.data.grupos)} grupo(s)"
         )
-    if estado.relatorio:
-        linhas.append(f"[bold]Relatório:[/] {estado.relatorio}")
+    if estado.ultima_exportacao:
+        linhas.append(f"[bold]Última exportação:[/] {estado.ultima_exportacao}")
     console.print(Panel("\n".join(linhas), border_style="dim", padding=(0, 1)))
 
 
 def _carregar(estado: Estado, caminho: str | Path, mostrar: bool = True) -> bool:
     caminho = Path(caminho)
+    if caminho.is_dir():
+        caminho = caminho / BANCO_NOME
     try:
-        data = ler_entrada(caminho)
+        data = carregar_leilao(caminho)
     except ValueError as exc:
         _erro(str(exc))
         return False
-    estado.entrada = caminho
+    estado.banco = caminho
+    estado.leilao = caminho.parent
     estado.data = data
+    estado.ultima_exportacao = None
     if mostrar:
-        console.print(f"[green]Planilha carregada:[/] {caminho}")
+        console.print(f"[green]Leilão carregado:[/] {estado.leilao}")
         _avisos(data.issues)
     return True
 
 
 def _salvar(estado: Estado) -> bool:
     if not estado.tem_dados:
-        _erro("Nenhuma planilha carregada.")
+        _erro("Nenhum leilão carregado.")
         return False
     try:
-        estado.data = salvar_entrada(estado.entrada, estado.data)
+        estado.data = salvar_leilao(estado.banco, estado.data)
     except PermissionError:
         _erro(
-            "Não foi possível salvar porque a planilha está aberta no Excel. "
-            "Feche o arquivo e tente novamente."
+            "Não foi possível salvar o banco. Feche outros programas que "
+            "estejam usando o arquivo e tente novamente."
         )
         return False
     except Exception as exc:
         _erro(f"Não foi possível salvar: {exc}")
         return False
-    console.print(f"[green]Alterações salvas em[/] {estado.entrada}")
+    console.print(f"[green]Alterações salvas em[/] {estado.banco}")
     return True
 
 
 def _ensure_data(estado: Estado) -> bool:
     if estado.tem_dados:
         return True
-    console.print("[yellow]Nenhuma planilha de entrada carregada.[/]")
-    if _confirm("Abrir uma planilha agora?", default=True):
-        caminho = selecionar_xlsx("Abrir planilha de entrada", estado.entrada)
+    console.print("[yellow]Nenhum leilão carregado.[/]")
+    if _confirm("Abrir um leilão agora?", default=True):
+        caminho = selecionar_banco("Abrir leilão", estado.banco)
         if not caminho:
             return False
         return _carregar(estado, caminho)
@@ -354,7 +389,7 @@ def _dashboard(estado: Estado) -> None:
     data = estado.data
     if data is None:
         return
-    console.print(f"[bold]Planilha:[/] {estado.entrada}")
+    console.print(f"[bold]Leilão:[/] {estado.leilao}")
     console.print(_tabela_grupos(data))
     console.print(_tabela_lotes(data))
     _avisos(data.issues)
@@ -368,20 +403,20 @@ def editar_dashboard(estado: Estado) -> None:
         _banner()
         _dashboard(estado)
         console.print(
-            "[dim]As edições são salvas na planilha de entrada. "
-            "Use 'Gerar relatório' para atualizar o Excel final.[/]"
+            "[dim]As edições são salvas no banco do leilão. "
+            "Use 'Exportar' no menu principal para gerar XLSX ou PDF.[/]"
         )
         opcao = _menu(
             "Editar relatório",
             [
-                ("1", "Ver/listar bens", "Filtrar por lote, código, texto ou categoria"),
+                ("1", "Ver/listar bens", "Filtrar por lote, código, texto, origem ou categoria"),
                 ("2", "Mover bens", "Mover bens por código/faixa para outro lote"),
                 ("3", "Editar lote", "Valor da venda, grupo, seção"),
                 ("4", "Editar bem", "Descrição, contas, código, lote"),
                 ("5", "Substituir texto", "Trocar um trecho da descrição em vários bens"),
                 ("6", "Adicionar/remover", "Novo lote, novo bem, remover"),
                 ("7", "Grupos e contas", "Dados bancários e abas"),
-                ("8", "Abrir no Excel", "Visualizar a planilha de entrada"),
+                ("8", "Abrir pasta do leilão", "Abrir a pasta no gerenciador de arquivos"),
                 ("9", "Salvar agora", "As edições já são salvas automaticamente"),
                 ("0", "Voltar", "Voltar ao menu principal"),
             ],
@@ -402,8 +437,8 @@ def editar_dashboard(estado: Estado) -> None:
             elif opcao == "7":
                 _grupos(estado)
             elif opcao == "8":
-                if estado.entrada:
-                    _open_file(estado.entrada)
+                if estado.leilao:
+                    _open_file(estado.leilao)
             elif opcao == "9":
                 _salvar(estado)
                 _pause()
@@ -433,8 +468,14 @@ def _ver_bens(estado: Estado) -> None:
     codigos = Prompt.ask("Código ou faixa (ex.: 300-400)", default="")
     texto = Prompt.ask("Texto na descrição", default="")
     categoria = Prompt.ask("Categoria", default="")
+    origem = Prompt.ask("Origem (Enter = todas)", default="")
     bens = filtrar_bens(
-        data, codigos=codigos, texto=texto, lote=lote, categoria=categoria
+        data,
+        codigos=codigos,
+        texto=texto,
+        lote=lote,
+        categoria=categoria,
+        origem=origem,
     )
     if not bens:
         console.print("[yellow]Nenhum bem encontrado.[/]")
@@ -453,6 +494,7 @@ def _mover_bens(estado: Estado) -> None:
     texto = Prompt.ask("Filtrar por texto na descrição (Enter = não)", default="")
     lote_origem = Prompt.ask("Lote de origem (Enter = qualquer)", default="")
     categoria = Prompt.ask("Categoria (Enter = qualquer)", default="")
+    origem = Prompt.ask("Origem (Enter = qualquer)", default="")
     if not codigos and not texto and not categoria:
         _erro("Informe pelo menos um filtro para não mover todos os bens.")
         _pause()
@@ -469,6 +511,7 @@ def _mover_bens(estado: Estado) -> None:
         texto=texto,
         lote=lote_origem,
         categoria=categoria,
+        origem=origem,
     )
     if not matches:
         console.print("[yellow]Nenhum bem corresponde aos filtros.[/]")
@@ -489,6 +532,7 @@ def _mover_bens(estado: Estado) -> None:
         texto=texto,
         lote_origem=lote_origem,
         categoria=categoria,
+        origem=origem,
     )
     _salvar(estado)
     _sucesso(f"{len(movidos)} bem(ns) movido(s) para o lote {lote_destino}.")
@@ -532,8 +576,15 @@ def _editar_bem(estado: Estado) -> None:
     data = estado.data
     assert data is not None
     codigo = Prompt.ask("Código do bem", default="")
+    bens_codigo = [
+        bem for bem in data.bens if (bem.codigo or "").strip() == codigo.strip()
+    ]
+    origem = ""
+    if len(bens_codigo) > 1:
+        console.print(_tabela_bens(bens_codigo))
+        origem = Prompt.ask("Origem do bem", default="")
     try:
-        bem = encontrar_bem(data, codigo)
+        bem = encontrar_bem(data, codigo, origem)
     except EdicaoError as exc:
         _erro(str(exc))
         _pause()
@@ -541,6 +592,7 @@ def _editar_bem(estado: Estado) -> None:
     console.print(
         Panel(
             f"[bold]Bem {bem.codigo}[/]\n"
+            f"Origem: {bem.origem or '-'}\n"
             f"Lote: {bem.lote or '-'}\nTipo: {bem.tipo}\n"
             f"Categoria: {bem.categoria}\nConta Crédito: {bem.conta_credito or '-'}\n"
             f"Conta Débito: {bem.conta_debito or '-'}\n"
@@ -554,6 +606,8 @@ def _editar_bem(estado: Estado) -> None:
         alteracoes["descricao"] = Prompt.ask("Nova descrição")
     if _confirm("Alterar o código?", default=False):
         alteracoes["novo_codigo"] = Prompt.ask("Novo código")
+    if _confirm("Alterar a origem?", default=False):
+        alteracoes["nova_origem"] = Prompt.ask("Nova origem", default=bem.origem)
     if _confirm("Alterar o lote?", default=False):
         alteracoes["lote"] = Prompt.ask("Novo lote (vazio = sem lote)", default="")
     if _confirm("Alterar o tipo?", default=False):
@@ -575,7 +629,7 @@ def _editar_bem(estado: Estado) -> None:
         console.print("[dim]Nada alterado.[/]")
         _pause()
         return
-    editar_bem(data, codigo, **alteracoes)
+    editar_bem(data, codigo, origem=origem, **alteracoes)
     _salvar(estado)
     _sucesso(f"Bem {bem.codigo} atualizado.")
     _pause()
@@ -592,9 +646,12 @@ def _substituir_texto(estado: Estado) -> None:
     novo = Prompt.ask("Novo texto", default="")
     lote = Prompt.ask("Filtrar por lote (Enter = todos)", default="")
     categoria = Prompt.ask("Filtrar por categoria (Enter = todas)", default="")
+    origem = Prompt.ask("Filtrar por origem (Enter = todas)", default="")
     matches = [
         bem
-        for bem in filtrar_bens(data, lote=lote, categoria=categoria)
+        for bem in filtrar_bens(
+            data, lote=lote, categoria=categoria, origem=origem
+        )
         if antigo.lower() in bem.descricao.lower()
     ]
     if not matches:
@@ -608,7 +665,7 @@ def _substituir_texto(estado: Estado) -> None:
         _pause()
         return
     alterados = substituir_descricao(
-        data, antigo, novo, lote=lote, categoria=categoria
+        data, antigo, novo, lote=lote, categoria=categoria, origem=origem
     )
     _salvar(estado)
     _sucesso(f"{len(alterados)} descrição(ões) alterada(s).")
@@ -653,6 +710,7 @@ def _adicionar_remover(estado: Estado) -> None:
         descricao = Prompt.ask("Descrição")
         tipo = Prompt.ask("Tipo de bem", default="Bens Móveis")
         categoria = Prompt.ask("Categoria", default="Outros")
+        origem = Prompt.ask("Origem", default="Prefeitura")
         credito = Prompt.ask("Conta Crédito (Enter = vazio)", default="")
         debito = Prompt.ask("Conta Débito (Enter = vazio)", default="")
         valor = Prompt.ask("Valor contábil (Enter = vazio)", default="")
@@ -663,6 +721,7 @@ def _adicionar_remover(estado: Estado) -> None:
             descricao=descricao,
             tipo=tipo,
             categoria=categoria,
+            origem=origem,
             conta_credito=credito,
             conta_debito=debito,
             valor_contabil=valor or None,
@@ -682,12 +741,18 @@ def _adicionar_remover(estado: Estado) -> None:
         texto = Prompt.ask("Texto na descrição (Enter = não)", default="")
         lote = Prompt.ask("Lote (Enter = qualquer)", default="")
         categoria = Prompt.ask("Categoria (Enter = qualquer)", default="")
+        origem = Prompt.ask("Origem (Enter = qualquer)", default="")
         if not codigos and not texto and not lote and not categoria:
             _erro("Informe pelo menos um filtro.")
             _pause()
             return
         matches = filtrar_bens(
-            data, codigos=codigos, texto=texto, lote=lote, categoria=categoria
+            data,
+            codigos=codigos,
+            texto=texto,
+            lote=lote,
+            categoria=categoria,
+            origem=origem,
         )
         if not matches:
             console.print("[yellow]Nenhum bem encontrado.[/]")
@@ -695,13 +760,18 @@ def _adicionar_remover(estado: Estado) -> None:
             return
         console.print(_tabela_bens(matches, limite=50))
         if not _confirm(
-            f"Excluir {len(matches)} bem(ns) da planilha?", default=False
+            f"Excluir {len(matches)} bem(ns) do leilão?", default=False
         ):
             console.print("[dim]Cancelado.[/]")
             _pause()
             return
         removidos = remover_bens(
-            data, codigos=codigos, texto=texto, lote=lote, categoria=categoria
+            data,
+            codigos=codigos,
+            texto=texto,
+            lote=lote,
+            categoria=categoria,
+            origem=origem,
         )
         _salvar(estado)
         _sucesso(f"{len(removidos)} bem(ns) removido(s).")
@@ -792,12 +862,35 @@ def _grupos(estado: Estado) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _pasta_do_leilao(estado: Estado) -> Path | None:
+    caminho = selecionar_pasta(
+        "Selecione ou crie a pasta do leilão", estado.leilao
+    )
+    if not caminho:
+        console.print("[dim]Cancelado.[/]")
+        _pause()
+        return None
+    pasta = Path(caminho).expanduser()
+    if caminho_banco(pasta).exists():
+        _erro(f"Já existe um leilão em {pasta}.")
+        _pause()
+        return None
+    return pasta
+
+
+def _abrir_edicao(estado: Estado) -> None:
+    if _confirm("Ir para a edição agora?", default=True):
+        editar_dashboard(estado)
+    else:
+        _pause()
+
+
 def novo_leilao(estado: Estado) -> None:
     console.clear()
     _banner()
     console.print(
         Panel(
-            "Selecione os PDFs do sistema. O seletor do Windows será aberto.\n"
+            "Selecione os PDFs do sistema.\n"
             "Cancelar no seletor = pular aquele arquivo.",
             title="Novo leilão",
             border_style="blue",
@@ -810,7 +903,7 @@ def novo_leilao(estado: Estado) -> None:
         ("Educação", "Relatório da Educação (opcional)"),
     ):
         console.print(f"[bold]{titulo}[/]")
-        caminho = selecionar_pdf(titulo, estado.entrada)
+        caminho = selecionar_pdf(titulo, estado.leilao or estado.banco)
         if caminho:
             relatorios.append((label, caminho))
             console.print(f"  [green]✓[/] {caminho}")
@@ -820,41 +913,126 @@ def novo_leilao(estado: Estado) -> None:
         _erro("Nenhum relatório selecionado.")
         _pause()
         return
-    pl = selecionar_pdf("Projeto de Lei", estado.entrada)
+    pl = selecionar_pdf("Projeto de Lei", estado.leilao or estado.banco)
     if pl:
         console.print(f"[green]✓[/] Projeto de lei: {pl}")
     else:
-        console.print("[yellow]Projeto de lei não selecionado; os lotes terão que ser preenchidos manualmente.[/]")
-    saida = salvar_xlsx(
-        "Salvar planilha de entrada",
-        "leilao_entrada.xlsx",
-        estado.entrada,
-    )
-    if not saida:
-        console.print("[dim]Cancelado.[/]")
-        _pause()
+        console.print(
+            "[yellow]Projeto de lei não selecionado; os lotes terão que ser "
+            "preenchidos manualmente.[/]"
+        )
+
+    pasta = _pasta_do_leilao(estado)
+    if pasta is None:
         return
-    with console.status("[cyan]Lendo PDFs e montando a planilha...[/]"):
+
+    with console.status("[cyan]Lendo PDFs e criando o leilão...[/]"):
         try:
             grupos, lotes, bens, issues = importar_pdfs(relatorios, pl or None)
-            write_entrada(saida, grupos, lotes, bens, issues)
+            data = criar_leilao(
+                pasta,
+                ReportData(grupos=grupos, lotes=lotes, bens=bens),
+            )
         except Exception as exc:
             _erro(str(exc))
             _pause()
             return
-    estado.entrada = Path(saida)
-    estado.data = ler_entrada(estado.entrada)
+
+        documentos = list(relatorios)
+        if pl:
+            documentos.append(("Projeto de Lei", pl))
+        try:
+            copiar_documentos(caminho_banco(pasta), documentos)
+        except Exception as exc:
+            console.print(
+                Panel(
+                    f"O leilão foi criado, mas os PDFs não puderam ser "
+                    f"copiados: {exc}",
+                    title="[bold yellow]Aviso[/]",
+                    border_style="yellow",
+                )
+            )
+
+    estado.leilao = pasta
+    estado.banco = caminho_banco(pasta)
+    estado.data = data
+    estado.ultima_exportacao = None
     _sucesso(
-        f"Planilha criada com {len(bens)} bens, {len(lotes)} lotes e {len(grupos)} grupo(s).\n"
-        f"{saida}"
+        f"Leilão criado com {len(bens)} bens, {len(lotes)} lotes e "
+        f"{len(grupos)} grupo(s).\n{pasta}"
     )
     _avisos(issues)
-    if _confirm("Abrir a planilha no Excel agora?", default=False):
-        _open_file(estado.entrada)
-    if _confirm("Ir para a edição agora?", default=True):
-        editar_dashboard(estado)
-    else:
+    _avisos(data.issues)
+    if _confirm("Abrir a pasta do leilão agora?", default=False):
+        _open_file(pasta)
+    _abrir_edicao(estado)
+
+
+def novo_leilao_vazio(estado: Estado) -> None:
+    console.clear()
+    _banner()
+    console.print(
+        Panel(
+            "Cria um leilão vazio, com os grupos padrão.",
+            title="Novo leilão vazio",
+            border_style="blue",
+        )
+    )
+    pasta = _pasta_do_leilao(estado)
+    if pasta is None:
+        return
+    grupos = [
+        copy.deepcopy(DEFAULT_GROUPS[nome])
+        for nome in ("Prefeitura", "Educação", "Saúde")
+    ]
+    try:
+        data = criar_leilao(pasta, ReportData(grupos=grupos))
+    except Exception as exc:
+        _erro(str(exc))
         _pause()
+        return
+    estado.leilao = pasta
+    estado.banco = caminho_banco(pasta)
+    estado.data = data
+    estado.ultima_exportacao = None
+    _sucesso(f"Leilão vazio criado em:\n{pasta}")
+    _abrir_edicao(estado)
+
+
+def migrar_leilao(estado: Estado) -> None:
+    console.clear()
+    _banner()
+    console.print(
+        Panel(
+            "Converte uma planilha de entrada antiga (.xlsx) em banco.",
+            title="Migrar planilha antiga",
+            border_style="blue",
+        )
+    )
+    entrada = selecionar_xlsx(
+        "Abrir planilha de entrada", estado.leilao or estado.banco
+    )
+    if not entrada:
+        console.print("[dim]Cancelado.[/]")
+        _pause()
+        return
+    pasta = _pasta_do_leilao(estado)
+    if pasta is None:
+        return
+    with console.status("[cyan]Migrando a planilha...[/]"):
+        try:
+            data = migrar_planilha(entrada, pasta)
+        except Exception as exc:
+            _erro(str(exc))
+            _pause()
+            return
+    estado.leilao = pasta
+    estado.banco = caminho_banco(pasta)
+    estado.data = data
+    estado.ultima_exportacao = None
+    _sucesso(f"Leilão migrado para:\n{pasta}")
+    _avisos(data.issues)
+    _abrir_edicao(estado)
 
 
 # ---------------------------------------------------------------------------
@@ -862,73 +1040,106 @@ def novo_leilao(estado: Estado) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _validar_para_gerar(estado: Estado) -> bool:
+def _menu_exportacao() -> str | None:
+    opcao = _menu(
+        "Exportar leilão",
+        [
+            ("1", "XLSX", "Planilha para revisão"),
+            ("2", "PDF", "Arquivo para impressão"),
+            ("3", "XLSX + PDF", "Gerar os dois arquivos"),
+            ("0", "Cancelar", ""),
+        ],
+    )
+    return {"1": "xlsx", "2": "pdf", "3": "ambos"}.get(opcao)
+
+
+def exportar_leilao(estado: Estado) -> None:
+    console.clear()
+    _banner()
     if not _ensure_data(estado):
-        return False
+        _pause()
+        return
     assert estado.data is not None
     _dashboard(estado)
     if estado.data.erros:
         console.print(
             Panel(
-                "Existem erros que impedem a geração. Corrija-os na edição.",
+                "Existem erros que impedem a exportação. Corrija-os na edição.",
                 border_style="red",
             )
         )
-        return False
-    return True
-
-
-def gerar(estado: Estado) -> None:
-    console.clear()
-    _banner()
-    if not _validar_para_gerar(estado):
         _pause()
         return
-    assert estado.data is not None
+    if not estado.data.resultados:
+        _erro("O leilão não tem lotes com bens para exportar.")
+        _pause()
+        return
+
     bens, total = _totais(estado.data)
     console.print(
         Panel(
             f"{bens} bens em {len(estado.data.resultados)} lote(s)\n"
             f"Total: {format_brl(total)}",
-            title="Pronto para gerar",
+            title="Pronto para exportar",
             border_style="green",
         )
     )
-    incluir_resumo = _confirm(
-        "Incluir a aba extra de conferência (Resumo)?", default=False
-    )
-    saida = salvar_xlsx(
-        "Salvar relatório final",
-        "relatorio_leilao.xlsx",
-        estado.relatorio or estado.entrada,
-    )
-    if not saida:
+    formato = _menu_exportacao()
+    if formato is None:
         console.print("[dim]Cancelado.[/]")
         _pause()
         return
-    with console.status("[cyan]Gerando o Excel...[/]"):
+    incluir_resumo = _confirm(
+        "Incluir a aba extra de conferência (Resumo)?", default=False
+    )
+    padrao = estado.leilao / "exportacoes" if estado.leilao else Path.cwd()
+    destino = Prompt.ask("Pasta de saída", default=str(padrao)).strip()
+    if not destino:
+        destino = str(padrao)
+
+    with console.status("[cyan]Gerando os arquivos...[/]"):
         try:
-            caminho = gerar_relatorio(
-                estado.data, saida, incluir_resumo=incluir_resumo
+            resultado = exportar(
+                estado.data,
+                destino,
+                formato,
+                incluir_resumo=incluir_resumo,
             )
         except Exception as exc:
             _erro(str(exc))
             _pause()
             return
-    estado.relatorio = Path(caminho)
-    from openpyxl import load_workbook
 
-    try:
-        wb_abas = load_workbook(caminho, read_only=True)
-        abas = wb_abas.sheetnames
-        wb_abas.close()
-    except Exception:
-        abas = []
-    _sucesso(f"Relatório gerado:\n{caminho}")
+    estado.ultima_exportacao = resultado.pdf or resultado.xlsx
+    linhas = []
+    if resultado.xlsx:
+        linhas.append(f"XLSX: {resultado.xlsx}")
+    if resultado.pdf:
+        linhas.append(f"PDF: {resultado.pdf}")
+    _sucesso("Arquivos gerados:\n" + "\n".join(linhas))
+
+    abas: list[str] = []
+    if resultado.xlsx:
+        try:
+            from openpyxl import load_workbook
+
+            wb_abas = load_workbook(resultado.xlsx, read_only=True)
+            abas = wb_abas.sheetnames
+            wb_abas.close()
+        except Exception:
+            abas = []
     if abas:
-        console.print(Panel("\n".join(f"• {aba}" for aba in abas), title="Abas criadas", border_style="blue"))
-    if _confirm("Abrir o relatório no Excel agora?", default=True):
-        _open_file(caminho)
+        console.print(
+            Panel(
+                "\n".join(f"• {aba}" for aba in abas),
+                title="Abas criadas",
+                border_style="blue",
+            )
+        )
+    if resultado.xlsx and _confirm("Abrir o XLSX agora?", default=True):
+        _open_file(resultado.xlsx)
+    if resultado.pdf and _confirm("Abrir o PDF agora?", default=True):
+        _open_file(resultado.pdf)
     _pause()
 
 
@@ -941,7 +1152,7 @@ def conferir(estado: Estado) -> None:
     assert estado.data is not None
     _dashboard(estado)
     if estado.data.erros:
-        console.print("[red]Existem erros que impedem a geração.[/]")
+        console.print("[red]Existem erros que impedem a exportação.[/]")
     else:
         console.print("[green]Tudo certo: todos os lotes fecham exatamente.[/]")
     _pause()
@@ -953,7 +1164,7 @@ def conferir(estado: Estado) -> None:
 
 
 def _carregar_padrao(estado: Estado) -> None:
-    padrao = Path.cwd() / "leilao_entrada.xlsx"
+    padrao = Path.cwd() / BANCO_NOME
     if padrao.exists():
         _carregar(estado, padrao, mostrar=False)
 
@@ -968,12 +1179,14 @@ def main_tui() -> int:
         opcao = _menu(
             "Menu principal",
             [
-                ("1", "Novo leilão", "Importar PDFs e criar a planilha de entrada"),
-                ("2", "Abrir/editar", "Editar bens, lotes, valores e descrições"),
-                ("3", "Gerar relatório", "Gerar o Excel no formato do modelo"),
-                ("4", "Conferir", "Validar somas e avisos"),
-                ("5", "Grupos e contas", "Editar dados bancários e abas"),
-                ("6", "Modelo vazio", "Criar uma planilha de entrada em branco"),
+                ("1", "Novo leilão", "Importar PDFs e criar a pasta do leilão"),
+                ("2", "Abrir leilão", "Abrir um banco de leilão existente"),
+                ("3", "Editar leilão", "Editar bens, lotes, valores e descrições"),
+                ("4", "Exportar", "Gerar XLSX e/ou PDF para revisão e impressão"),
+                ("5", "Conferir", "Validar somas e avisos"),
+                ("6", "Grupos e contas", "Editar dados bancários e abas"),
+                ("7", "Migrar planilha antiga", "Converter um .xlsx antigo em banco"),
+                ("8", "Novo leilão vazio", "Criar um leilão em branco"),
                 ("0", "Sair", ""),
             ],
         )
@@ -981,7 +1194,9 @@ def main_tui() -> int:
             if opcao == "1":
                 novo_leilao(estado)
             elif opcao == "2":
-                caminho = selecionar_xlsx("Abrir planilha de entrada", estado.entrada)
+                caminho = selecionar_banco(
+                    "Abrir leilão", estado.banco or estado.leilao
+                )
                 if caminho:
                     if _carregar(estado, caminho):
                         editar_dashboard(estado)
@@ -990,22 +1205,23 @@ def main_tui() -> int:
                 else:
                     _pause()
             elif opcao == "3":
-                gerar(estado)
+                if _ensure_data(estado):
+                    editar_dashboard(estado)
+                else:
+                    _pause()
             elif opcao == "4":
-                conferir(estado)
+                exportar_leilao(estado)
             elif opcao == "5":
+                conferir(estado)
+            elif opcao == "6":
                 if _ensure_data(estado):
                     _grupos(estado)
                 else:
                     _pause()
-            elif opcao == "6":
-                saida = salvar_xlsx("Salvar modelo de planilha", "modelo_leilao.xlsx")
-                if saida:
-                    modelo_entrada(saida)
-                    _sucesso(f"Modelo criado:\n{saida}")
-                    if _confirm("Abrir o modelo agora?", default=True):
-                        _open_file(saida)
-                _pause()
+            elif opcao == "7":
+                migrar_leilao(estado)
+            elif opcao == "8":
+                novo_leilao_vazio(estado)
             elif opcao == "0":
                 console.print("[dim]Até mais.[/]")
                 return 0
