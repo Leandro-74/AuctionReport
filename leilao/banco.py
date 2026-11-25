@@ -493,7 +493,7 @@ def _carregar_bens(conn: sqlite3.Connection, lotes: list[Lot]) -> list[Asset]:
     numeros = {lote.id: lote.numero for lote in lotes}
     bens: list[Asset] = []
     for row in conn.execute(
-        "SELECT * FROM bens ORDER BY ordem, id"
+        "SELECT * FROM bens WHERE ativo = 1 ORDER BY ordem, id"
     ).fetchall():
         try:
             valor = (
