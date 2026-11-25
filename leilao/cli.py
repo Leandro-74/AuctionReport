@@ -143,13 +143,17 @@ def _cmd_novo(args: argparse.Namespace) -> int:
         data = criar_leilao(
             pasta, ReportData(grupos=grupos, lotes=lotes, bens=bens)
         )
-        documentos = list(relatorios)
-        if args.pl:
-            documentos.append(("Projeto de Lei", args.pl))
-        copiar_documentos(db_path, documentos)
     except (ValueError, OSError) as exc:
         print(f"ERRO: {exc}")
         return 1
+
+    documentos = list(relatorios)
+    if args.pl:
+        documentos.append(("Projeto de Lei", args.pl))
+    try:
+        copiar_documentos(db_path, documentos)
+    except (ValueError, OSError) as exc:
+        print(f"AVISO: os PDFs não puderam ser copiados: {exc}")
 
     _print_issues(issues)
     _print_issues(data.issues)

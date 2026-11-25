@@ -104,6 +104,26 @@ class CliTests(unittest.TestCase):
         self.assertTrue((leilao / "documentos" / "prefeitura.pdf").exists())
         self.assertTrue((leilao / "documentos" / "pl.pdf").exists())
 
+    def test_novo_continua_quando_documentos_falham(self):
+        prefeitura = self.raiz / "prefeitura.pdf"
+        prefeitura.write_bytes(b"%PDF")
+        leilao = self.raiz / "2026-1"
+        data = ReportData(grupos=_grupos(), lotes=_lotes(), bens=_bens())
+
+        with mock.patch(
+            "leilao.cli.importar_pdfs",
+            return_value=(data.grupos, data.lotes, data.bens, []),
+        ), mock.patch(
+            "leilao.cli.copiar_documentos", side_effect=OSError("sem permissão")
+        ):
+            codigo, saida = self._rodar(
+                "novo", "--prefeitura", str(prefeitura), "--pasta", str(leilao)
+            )
+
+        self.assertEqual(codigo, 0, saida)
+        self.assertIn("AVISO", saida)
+        self.assertTrue(caminho_banco(leilao).exists())
+
     def test_novo_recusa_pasta_com_leilao(self):
         leilao = self.raiz / "2026-1"
         criar_estrutura(leilao)
