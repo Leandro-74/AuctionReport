@@ -272,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
     _utf8()
     parser = argparse.ArgumentParser(
         prog="python -m leilao",
-        description="AuctionReport: relatórios de bens de leilão em Excel.",
+        description="AuctionReport: relatórios de bens de leilão em Excel e PDF.",
     )
     sub = parser.add_subparsers(dest="comando")
 
