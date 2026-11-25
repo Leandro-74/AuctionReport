@@ -482,7 +482,7 @@ def write_entrada(
     return path
 
 
-def _suggest_section(law: LawLot) -> str:
+def suggest_section(law: LawLot) -> str:
     if law.categoria == "Veículos":
         return "Veículos"
     if law.categoria == "Mobiliário":
@@ -497,7 +497,7 @@ def _suggest_section(law: LawLot) -> str:
     return "Bens em Geral"
 
 
-def _bulk_lots(law_lots: list[LawLot]) -> dict[str, LawLot | None]:
+def bulk_lots(law_lots: list[LawLot]) -> dict[str, LawLot | None]:
     """Lotes genéricos (sem patrimônio) por categoria."""
     result: dict[str, LawLot | None] = {}
     for category in ("Mobiliário", "Hospitalar", "Informática"):
@@ -553,7 +553,7 @@ def importar_pdfs(
     codigos_ambiguos = {
         codigo for codigo, itens in codigos_bens.items() if len(itens) > 1
     }
-    bulk = _bulk_lots(law_lots)
+    bulk = bulk_lots(law_lots)
     for bem in bens:
         if bem.codigo in codigos_ambiguos:
             continue
@@ -668,7 +668,7 @@ def importar_pdfs(
                     numero=law.numero,
                     valor=law.valor_avaliado or Decimal("0.00"),
                     grupo=grupo.nome,
-                    secao=_suggest_section(law),
+                    secao=suggest_section(law),
                     valor_avaliado=law.valor_avaliado,
                     descricao_pl=law.descricao,
                 )
