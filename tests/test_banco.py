@@ -12,6 +12,7 @@ from leilao.banco import (
     copiar_documentos,
     criar_banco,
     criar_estrutura,
+    criar_leilao,
     migrar_planilha,
     salvar_leilao,
 )
@@ -156,6 +157,32 @@ class BancoTests(unittest.TestCase):
         )
         salvo = salvar_leilao(self.db, data)
         self.assertEqual(len([b for b in salvo.bens if b.codigo == "99"]), 2)
+
+    def test_criar_leilao_remove_banco_temporario(self):
+        with tempfile.TemporaryDirectory() as temp:
+            pasta = Path(temp) / "novo"
+            data = ReportData(grupos=_grupos(), lotes=_lotes(), bens=_bens())
+            resultado = criar_leilao(pasta, data)
+            self.assertTrue((pasta / BANCO_NOME).exists())
+            self.assertFalse((pasta / f"{BANCO_NOME}.tmp").exists())
+            self.assertFalse(resultado.erros, [str(e) for e in resultado.erros])
+
+    def test_criar_leilao_nao_deixa_banco_parcial(self):
+        with tempfile.TemporaryDirectory() as temp:
+            pasta = Path(temp) / "novo"
+            data = ReportData(grupos=_grupos(), lotes=_lotes(), bens=_bens())
+            data.bens.append(
+                Asset(
+                    lote="01",
+                    codigo="1",
+                    descricao="DUPLICADO",
+                    origem="Prefeitura",
+                )
+            )
+            with self.assertRaises(ValueError):
+                criar_leilao(pasta, data)
+            self.assertFalse((pasta / BANCO_NOME).exists())
+            self.assertFalse((pasta / f"{BANCO_NOME}.tmp").exists())
 
     def test_migrar_planilha(self):
         with tempfile.TemporaryDirectory() as temp:

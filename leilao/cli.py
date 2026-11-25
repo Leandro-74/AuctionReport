@@ -12,10 +12,8 @@ from .banco import (
     caminho_banco,
     carregar_leilao,
     copiar_documentos,
-    criar_banco,
-    criar_estrutura,
+    criar_leilao,
     migrar_planilha,
-    salvar_leilao,
 )
 from .entrada import importar_pdfs, ler_entrada, modelo_entrada, write_entrada
 from .exportacao import FORMATOS, exportar
@@ -142,10 +140,8 @@ def _cmd_novo(args: argparse.Namespace) -> int:
 
     try:
         grupos, lotes, bens, issues = importar_pdfs(relatorios, args.pl)
-        criar_estrutura(pasta)
-        criar_banco(db_path, nome=pasta.name)
-        data = salvar_leilao(
-            db_path, ReportData(grupos=grupos, lotes=lotes, bens=bens)
+        data = criar_leilao(
+            pasta, ReportData(grupos=grupos, lotes=lotes, bens=bens)
         )
         documentos = list(relatorios)
         if args.pl:

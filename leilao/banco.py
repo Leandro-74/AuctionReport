@@ -540,17 +540,31 @@ def carregar_leilao(path: str | Path) -> ReportData:
     return data
 
 
+def criar_leilao(pasta: str | Path, data: ReportData) -> ReportData:
+    """Create a new auction database, replacing it only on success."""
+    pasta = criar_estrutura(pasta)
+    db_path = caminho_banco(pasta)
+    if db_path.exists():
+        raise ValueError(f"Já existe um leilão em {pasta}.")
+    temporario = pasta / f"{BANCO_NOME}.tmp"
+    if temporario.exists():
+        temporario.unlink()
+    criar_banco(temporario, nome=pasta.name)
+    try:
+        resultado = salvar_leilao(temporario, data)
+    except Exception:
+        temporario.unlink(missing_ok=True)
+        raise
+    temporario.replace(db_path)
+    return resultado
+
+
 def migrar_planilha(xlsx_path: str | Path, pasta: str | Path) -> ReportData:
     """Create an auction folder and database from a legacy input workbook."""
     from .entrada import ler_entrada
 
     data = ler_entrada(xlsx_path)
-    pasta = criar_estrutura(pasta)
-    db_path = caminho_banco(pasta)
-    if db_path.exists():
-        raise ValueError(f"Já existe um leilão em {pasta}.")
-    criar_banco(db_path, nome=pasta.name)
-    return salvar_leilao(db_path, data)
+    return criar_leilao(pasta, data)
 
 
 def copiar_documentos(
