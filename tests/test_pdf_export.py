@@ -50,6 +50,39 @@ class PdfExportTests(unittest.TestCase):
         self.assertEqual(nome_seguro_pdf("Relatório Leilão 2026"), "relatorio-leilao-2026.pdf")
         self.assertEqual(nome_seguro_pdf(""), "relatorio.pdf")
 
+    @unittest.skipIf(os.name == "nt", "teste usa um script shell")
+    def test_conversao_com_executavel_falso(self):
+        with tempfile.TemporaryDirectory() as temp:
+            temp = Path(temp)
+            falso = temp / "soffice"
+            falso.write_text(
+                "#!/bin/sh\n"
+                "outdir=''\n"
+                "input=''\n"
+                "prev=''\n"
+                "for arg in \"$@\"; do\n"
+                "  if [ \"$prev\" = '--outdir' ]; then outdir=\"$arg\"; fi\n"
+                "  prev=\"$arg\"\n"
+                "  input=\"$arg\"\n"
+                "done\n"
+                "base=$(basename \"$input\" .xlsx)\n"
+                "printf '%%PDF-1.4 fake\\n' > \"$outdir/$base.pdf\"\n",
+                encoding="utf-8",
+            )
+            falso.chmod(0o755)
+            xlsx = temp / "relatorio.xlsx"
+            pdf = temp / "saida.pdf"
+            wb = Workbook()
+            wb.active["A1"] = "teste"
+            wb.save(xlsx)
+            with mock.patch.dict(
+                os.environ, {"SOFFICE_PATH": str(falso)}, clear=False
+            ):
+                convertido = converter_xlsx_para_pdf(xlsx, pdf)
+            self.assertEqual(convertido, pdf.resolve())
+            self.assertTrue(pdf.exists())
+            self.assertEqual(pdf.read_bytes()[:4], b"%PDF")
+
     @unittest.skipUnless(encontrar_soffice(), "LibreOffice não encontrado")
     def test_conversao_real(self):
         with tempfile.TemporaryDirectory() as temp:
