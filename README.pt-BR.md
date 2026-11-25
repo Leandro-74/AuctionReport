@@ -27,6 +27,8 @@ quando necessário: XLSX para revisão e PDF para impressão.
   avaliados.
 - Cria uma **pasta e um banco SQLite** para cada leilão.
 - Copia os PDFs de origem para a pasta do leilão.
+- Compara PDFs novos com um leilão existente e mostra bens novos, alterados e
+  ausentes antes de aplicar.
 - Permite editar os dados pela TUI:
   - mover bens por **código, faixa de códigos, texto da descrição, origem ou
     categoria** para outro lote;
@@ -112,11 +114,12 @@ A TUI abre com o menu principal:
 1. **Novo leilão** — lê os PDFs e cria a pasta e o banco do leilão.
 2. **Abrir leilão** — abre um `leilao.db` existente.
 3. **Editar leilão** — edita bens, lotes, valores e descrições.
-4. **Exportar** — gera XLSX, PDF ou os dois.
-5. **Conferir** — mostra os totais e os avisos sem gerar arquivos.
-6. **Grupos e contas** — edita os dados bancários e as abas.
-7. **Migrar planilha antiga** — converte uma planilha de entrada antiga em banco.
-8. **Novo leilão vazio** — cria um leilão em branco com os grupos padrão.
+4. **Atualizar com PDFs** — compara PDFs novos com o leilão atual.
+5. **Exportar** — gera XLSX, PDF ou os dois.
+6. **Conferir** — mostra os totais e os avisos sem gerar arquivos.
+7. **Grupos e contas** — edita os dados bancários e as abas.
+8. **Migrar planilha antiga** — converte uma planilha de entrada antiga em banco.
+9. **Novo leilão vazio** — cria um leilão em branco com os grupos padrão.
 
 Depois de abrir um leilão, o painel de edição mostra:
 
@@ -147,6 +150,31 @@ leiloes/
 
 Para fazer backup de um leilão, copie a pasta inteira. Para arquivar, mova a pasta.
 Não é preciso servidor: o SQLite é um único arquivo e já vem com o Python.
+
+## Atualizar um leilão
+
+Quando chegam PDFs novos:
+
+1. Abra o leilão.
+2. Escolha **Atualizar com PDFs**.
+3. Selecione os relatórios atualizados e, se houver, o projeto de lei atualizado.
+4. Confira o resumo:
+   - bens novos;
+   - bens alterados e seus campos;
+   - bens que não aparecem mais nos PDFs;
+   - lotes novos do projeto de lei;
+   - avisos.
+5. Confirme para aplicar a atualização.
+
+A atualização é conservadora:
+
+- lotes, contas e observações existentes são preservados;
+- tipo, descrição e valor contábil são atualizados a partir do PDF;
+- bens novos usam o projeto de lei para sugerir o lote;
+- códigos ambíguos não são associados automaticamente;
+- bens que sumiram dos PDFs são mantidos e aparecem como aviso.
+
+Os PDFs de origem são copiados para `documentos/` depois de uma atualização bem-sucedida.
 
 ## Edição por código
 
@@ -263,8 +291,14 @@ python -m leilao exportar leiloes/2026-2/leilao.db --formato pdf
 
 python -m leilao exportar leiloes/2026-2/leilao.db --formato ambos --com-resumo
 
+python -m leilao atualizar leiloes/2026-2/leilao.db --prefeitura "Report_prefeitura_novo.pdf"
+
+python -m leilao atualizar leiloes/2026-2/leilao.db --prefeitura "Report_prefeitura_novo.pdf" --aplicar
+
 python -m leilao migrar leilao_entrada.xlsx --pasta leiloes/2025-2
 ```
+
+Sem `--aplicar`, o comando `atualizar` apenas mostra o resumo e os avisos.
 
 No Linux, use `./iniciar.sh` antes dos mesmos argumentos, ou o ambiente virtual:
 
@@ -380,6 +414,7 @@ Os testes incluem:
 - comparação de fontes, preenchimentos, bordas, larguras e margens com o modelo;
 - movimentação de bens por faixa de código e filtro por origem;
 - persistência em SQLite, atualizações, remoções e migração de planilha antiga;
+- reconciliação de PDFs novos com um leilão existente;
 - fluxo de exportação XLSX e PDF;
 - conferência de que todas as somas fecham.
 
@@ -397,6 +432,7 @@ AuctionReport/
     models.py       modelos de bem, lote, grupo e resultado
     pdfs.py         leitura dos relatórios e do projeto de lei
     banco.py        persistência SQLite, pastas de leilão e migração
+    atualizacao.py  reconciliação de PDFs novos com um leilão existente
     entrada.py      suporte à planilha de entrada antiga e validação
     edicao.py       movimentação e edição de bens/lotes/grupos
     relatorio.py    geração do Excel no formato do modelo
@@ -410,6 +446,7 @@ AuctionReport/
     test_edicao.py
     test_template.py
     test_banco.py
+    test_atualizacao.py
     test_exportacao.py
     test_pdf_export.py
     test_cli.py

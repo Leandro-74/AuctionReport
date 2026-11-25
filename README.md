@@ -26,6 +26,8 @@ for review and PDF for printing.
 - Read the **bill of law** and identify lots, asset codes and appraised values.
 - Create a **folder and SQLite database** for each auction.
 - Copy the source PDFs into the auction folder.
+- Compare new PDFs with an existing auction and preview new, changed and missing
+  assets before applying.
 - Edit data in the TUI:
   - move assets by code, code range, description, origin or category;
   - change a lot's sale value, group and section;
@@ -110,11 +112,12 @@ The TUI opens the main menu:
 1. **Novo leilão** — reads the PDFs and creates the auction folder and database.
 2. **Abrir leilão** — opens an existing `leilao.db`.
 3. **Editar leilão** — edits assets, lots, values and descriptions.
-4. **Exportar** — generates XLSX, PDF or both.
-5. **Conferir** — shows totals and warnings without generating files.
-6. **Grupos e contas** — edits bank data and sheets.
-7. **Migrar planilha antiga** — converts an old input workbook into a database.
-8. **Novo leilão vazio** — creates an empty auction with the default groups.
+4. **Atualizar com PDFs** — compares new PDFs with the current auction.
+5. **Exportar** — generates XLSX, PDF or both.
+6. **Conferir** — shows totals and warnings without generating files.
+7. **Grupos e contas** — edits bank data and sheets.
+8. **Migrar planilha antiga** — converts an old input workbook into a database.
+9. **Novo leilão vazio** — creates an empty auction with the default groups.
 
 After opening an auction, the editing panel shows:
 
@@ -145,6 +148,31 @@ leiloes/
 
 To back up an auction, copy the whole folder. To archive an auction, move the folder.
 No server is needed: SQLite is a single file and comes with Python.
+
+## Updating an auction
+
+When new PDF reports arrive:
+
+1. Open the auction.
+2. Choose **Atualizar com PDFs**.
+3. Select the updated reports and, if available, the updated bill of law.
+4. Review the summary:
+   - new assets;
+   - changed assets and fields;
+   - assets that no longer appear in the PDFs;
+   - new lots from the bill of law;
+   - warnings.
+5. Confirm to apply the update.
+
+The update is conservative:
+
+- existing lots, accounts and notes are preserved;
+- type, description and book value are updated from the PDF;
+- new assets use the bill of law to suggest a lot;
+- ambiguous codes are not assigned automatically;
+- assets missing from the PDFs are kept and reported as warnings.
+
+The source PDFs are copied into `documentos/` after a successful update.
 
 ## Editing by code
 
@@ -263,8 +291,14 @@ python -m leilao exportar leiloes/2026-2/leilao.db --formato pdf
 
 python -m leilao exportar leiloes/2026-2/leilao.db --formato ambos --com-resumo
 
+python -m leilao atualizar leiloes/2026-2/leilao.db --prefeitura "Report_prefeitura_novo.pdf"
+
+python -m leilao atualizar leiloes/2026-2/leilao.db --prefeitura "Report_prefeitura_novo.pdf" --aplicar
+
 python -m leilao migrar leilao_entrada.xlsx --pasta leiloes/2025-2
 ```
+
+Without `--aplicar`, the `atualizar` command only shows the summary and warnings.
 
 On Linux, use `./iniciar.sh` before the same arguments, or the virtual environment:
 
@@ -380,6 +414,7 @@ The tests include:
 - comparison of fonts, fills, borders, widths and margins with the template;
 - moving assets by code range and filtering by origin;
 - SQLite persistence, updates, removals and legacy workbook migration;
+- reconciliation of new PDFs with an existing auction;
 - XLSX and PDF export workflow;
 - checking that every sum matches.
 
@@ -397,6 +432,7 @@ AuctionReport/
     models.py       asset, lot, group and result models
     pdfs.py         reading reports and the bill of law
     banco.py        SQLite storage, auction folders and migration
+    atualizacao.py  reconciliation of new PDFs with an existing auction
     entrada.py      legacy input workbook support and validation
     edicao.py       asset, lot and group editing
     relatorio.py    final Excel generation in the template layout
@@ -410,6 +446,7 @@ AuctionReport/
     test_edicao.py
     test_template.py
     test_banco.py
+    test_atualizacao.py
     test_exportacao.py
     test_pdf_export.py
     test_cli.py
