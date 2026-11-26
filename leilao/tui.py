@@ -1427,7 +1427,8 @@ def _mostrar_plano(plano) -> None:
             console.print(f"[dim]Mostrando 30 de {len(plano.ausentes)}.[/]")
     if plano.novos_lotes:
         linhas = [
-            f"Lote {lote.numero} ({lote.grupo}) - {format_brl(lote.valor)}"
+            f"Lote {lote.numero} ({lote.grupo}) - "
+            f"{format_brl(lote.valor) if lote.valor_informado else 'sem valor'}"
             for lote in plano.novos_lotes
         ]
         console.print(
