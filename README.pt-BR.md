@@ -31,11 +31,12 @@ necessário. Abra-o para revisar e exporte para PDF manualmente se precisar.
 - Permite editar os dados pela TUI:
   - mover bens por **código, faixa de códigos, texto da descrição, origem ou
     categoria** para outro lote;
-  - alterar o valor, o grupo e a seção de um lote;
+  - alterar o valor, o grupo, a seção e a conta de depósito de um lote;
   - alterar descrição, contas, código, origem e lote de um bem;
   - substituir um trecho da descrição em vários bens;
   - adicionar/remover lotes e bens;
-  - editar grupos, contas bancárias, agência e CNPJ.
+  - editar grupos, dados bancários padrão e contas compartilhadas;
+  - editar os valores padrão do `.env` pela TUI.
 - Rateia o valor de cada lote entre os bens, com no máximo **duas casas decimais**.
 - Coloca a diferença no **último bem** do lote, de forma que a soma feche exatamente.
 - Exporta o relatório final em **XLSX**.
@@ -95,7 +96,12 @@ As variáveis são:
 | `AUCTIONREPORT_CONTA_PREFEITURA` | Conta corrente da Prefeitura |
 | `AUCTIONREPORT_CONTA_SAUDE` | Conta corrente da Saúde |
 
-Esses valores também podem ser alterados depois no menu **Grupos e contas**.
+Esses valores também podem ser alterados em **Grupos e contas → Configuração padrão**.
+A TUI edita o arquivo `.env`, mantém um backup local e lembra que é preciso reiniciar a
+ferramenta.
+
+Esses valores são apenas padrões. Cada leilão guarda os próprios grupos e contas de
+depósito no `leilao.db`, então eles podem variar por lote, leilão ou secretaria.
 
 ### Windows
 
@@ -125,7 +131,7 @@ A TUI abre com o menu principal:
 4. **Atualizar com PDFs** — compara PDFs novos com o leilão atual.
 5. **Exportar** — gera o relatório em XLSX.
 6. **Conferir** — mostra os totais e os avisos sem gerar arquivos.
-7. **Grupos e contas** — edita os dados bancários e as abas.
+7. **Grupos e contas** — edita grupos, contas compartilhadas e padrões do `.env`.
 8. **Migrar planilha antiga** — converte uma planilha de entrada antiga em banco.
 9. **Novo leilão vazio** — cria um leilão em branco com os grupos padrão.
 
@@ -161,6 +167,21 @@ leiloes/
 
 Para fazer backup de um leilão, copie a pasta inteira. Para arquivar, mova a pasta.
 Não é preciso servidor: o SQLite é um único arquivo e já vem com o Python.
+
+## Contas de depósito
+
+Cada leilão tem as suas próprias contas de depósito:
+
+- Cada grupo tem uma **conta padrão**, editada em **Grupos e contas → Editar grupo**.
+- Um lote pode usar a conta padrão do grupo ou uma **conta específica**.
+- Vários lotes podem compartilhar a mesma conta.
+- **Grupos e contas → Contas de depósito** cria, edita e remove contas
+  compartilhadas.
+- Ao editar um lote, digite `padrao` para voltar à conta do grupo.
+- Um lote sem conta específica usa os dados bancários do próprio grupo.
+
+No relatório, os lotes que usam a mesma conta são agrupados em uma única aba de conta
+com o valor total. Lotes que usam a conta padrão são agrupados por grupo.
 
 ## Atualizar um leilão
 
@@ -264,6 +285,8 @@ Aparência reproduzida do modelo:
 - abas auxiliares: `Todos os Veículos` com 6 colunas (inclui Conta Crédito), as demais
   com 5 colunas (`Tipo de bem`, `Código`, `Conta Débito`, `Descrição`, `Valor`);
 - abas de conta com 4 colunas e os blocos de agência, conta corrente, CNPJ e total;
+- uma aba por conta usada; lotes que compartilham a mesma conta dividem a aba e o
+  total;
 - fontes Calibri/Arial, fundo cinza `D9D9D9`, bordas finas, formato `R$ #,##0.00`,
   larguras de coluna e margens iguais às do modelo.
 
@@ -320,17 +343,19 @@ Os comandos antigos de XLSX continuam disponíveis para arquivos legados:
 
 ## Banco de dados
 
-O banco SQLite guarda grupos, lotes e bens. Os bens são ligados aos lotes por IDs
-internos; o código do patrimônio é a chave de negócio usada na busca e na
+O banco SQLite guarda grupos, contas de depósito, lotes e bens. Os bens são ligados aos
+lotes por IDs internos; o código do patrimônio é a chave de negócio usada na busca e na
 reconciliação.
 
 Regras conferidas pelo banco e pela validação:
 
 - os números de lote são únicos dentro do leilão;
 - os nomes de grupo são únicos dentro do leilão;
+- os nomes de conta são únicos dentro do leilão;
 - os códigos de bem são únicos dentro de cada origem;
 - o mesmo código pode existir na Prefeitura e na Saúde;
 - todo lote precisa apontar para um grupo existente;
+- um lote pode apontar para uma conta, e a mesma conta pode ser usada por vários lotes;
 - todo bem precisa apontar para um lote existente ou ficar sem lote.
 
 O rateio é calculado na geração do relatório. Ele não é gravado no banco.
@@ -420,6 +445,8 @@ Os testes incluem:
 - comparação de fontes, preenchimentos, bordas, larguras e margens com o modelo;
 - movimentação de bens por faixa de código e filtro por origem;
 - persistência em SQLite, atualizações, remoções e migração de planilha antiga;
+- contas de depósito compartilhadas por vários lotes;
+- leitura e gravação do `.env`;
 - reconciliação de PDFs novos com um leilão existente;
 - fluxo de exportação XLSX;
 - conferência de que todas as somas fecham.
@@ -436,6 +463,7 @@ AuctionReport/
     money.py        dinheiro, formatação brasileira e rateio
     models.py       modelos de bem, lote, grupo e resultado
     config.py       dados padrão do município carregados do .env
+    env_config.py   leitura e gravação do .env local
     pdfs.py         leitura dos relatórios e do projeto de lei
     banco.py        persistência SQLite, pastas de leilão e migração
     atualizacao.py  reconciliação de PDFs novos com um leilão existente
@@ -451,10 +479,13 @@ AuctionReport/
     test_edicao.py
     test_template.py
     test_banco.py
+    test_contas.py
     test_atualizacao.py
     test_exportacao.py
     test_cli.py
+    test_env_config.py
     test_importacao.py
+    test_tui.py
     test_integracao.py
   instalar.bat / iniciar.bat   instalação e execução no Windows
   instalar.sh / iniciar.sh     instalação e execução no Linux

@@ -29,11 +29,12 @@ to review, then export to PDF manually if needed.
   assets before applying.
 - Edit data in the TUI:
   - move assets by code, code range, description, origin or category;
-  - change a lot's sale value, group and section;
+  - change a lot's sale value, group, section and deposit account;
   - change an asset's description, accounts, code, origin and lot;
   - replace a text fragment in several descriptions;
   - add or remove lots and assets;
-  - edit groups, bank accounts, branch and CNPJ.
+  - edit groups, default bank data, and shared deposit accounts;
+  - edit the default `.env` values from the TUI.
 - Split each lot's value among its assets with at most **two decimal places**.
 - Put the remainder on the **last asset** of the lot, so the sum matches exactly.
 - Export the final report as **XLSX**.
@@ -93,7 +94,11 @@ The variables are:
 | `AUCTIONREPORT_CONTA_PREFEITURA` | Prefeitura checking account |
 | `AUCTIONREPORT_CONTA_SAUDE` | Saúde checking account |
 
-You can also change these values later in the **Grupos e contas** menu.
+You can also change these values in **Grupos e contas → Configuração padrão**. The TUI
+edits the `.env` file, keeps a local backup, and shows a reminder to restart the tool.
+
+These values are only defaults. Each auction stores its own groups and deposit
+accounts in `leilao.db`, so they can differ per lot, auction or department.
 
 ## Usage
 
@@ -125,7 +130,7 @@ The TUI opens the main menu:
 4. **Atualizar com PDFs** — compares new PDFs with the current auction.
 5. **Exportar** — generates the XLSX report.
 6. **Conferir** — shows totals and warnings without generating files.
-7. **Grupos e contas** — edits bank data and sheets.
+7. **Grupos e contas** — edits groups, shared deposit accounts and `.env` defaults.
 8. **Migrar planilha antiga** — converts an old input workbook into a database.
 9. **Novo leilão vazio** — creates an empty auction with the default groups.
 
@@ -161,6 +166,21 @@ leiloes/
 
 To back up an auction, copy the whole folder. To archive an auction, move the folder.
 No server is needed: SQLite is a single file and comes with Python.
+
+## Deposit accounts
+
+Each auction has its own deposit accounts:
+
+- Every group has a **default account**, edited in **Grupos e contas → Editar grupo**.
+- A lot can use the group default or a **specific account**.
+- Several lots can share the same account.
+- **Grupos e contas → Contas de depósito** creates, edits and removes shared
+  accounts.
+- When editing a lot, type `padrao` to go back to the group default.
+- A lot with no specific account uses the account data stored in its group.
+
+In the report, lots that use the same account are grouped into a single account
+sheet with the total value. Lots that use the group default are grouped by group.
 
 ## Updating an auction
 
@@ -266,6 +286,8 @@ The template layout is reproduced with:
   `Valor`);
 - account sheets with 4 columns and blocks for branch, checking account, CNPJ and
   total;
+- one account sheet per account used; lots that share an account share the sheet and
+  the total;
 - Calibri/Arial fonts, gray `D9D9D9` background, thin borders, `R$ #,##0.00` format,
   column widths and margins equal to the template.
 
@@ -322,16 +344,19 @@ The old XLSX commands are still available for legacy files:
 
 ## Database
 
-The SQLite database stores groups, lots and assets. Assets are linked to lots by
-internal IDs; the asset code is the business key used for search and reconciliation.
+The SQLite database stores groups, deposit accounts, lots and assets. Assets are
+linked to lots by internal IDs; the asset code is the business key used for search and
+reconciliation.
 
 Rules enforced by the database and validation:
 
 - lot numbers are unique inside the auction;
 - group names are unique inside the auction;
+- account names are unique inside the auction;
 - asset codes are unique inside each origin;
 - the same asset code may exist in Prefeitura and Saúde;
 - every lot must reference an existing group;
+- a lot may reference an account, and the same account may be used by several lots;
 - every asset must reference an existing lot or have no lot.
 
 The value split is calculated when the report is generated. It is not stored in the
@@ -422,6 +447,8 @@ The tests include:
 - comparison of fonts, fills, borders, widths and margins with the template;
 - moving assets by code range and filtering by origin;
 - SQLite persistence, updates, removals and legacy workbook migration;
+- shared deposit accounts used by multiple lots;
+- `.env` reading and writing;
 - reconciliation of new PDFs with an existing auction;
 - XLSX export workflow;
 - checking that every sum matches.
@@ -438,6 +465,7 @@ AuctionReport/
     money.py        money, Brazilian formatting and value splitting
     models.py       asset, lot, group and result models
     config.py       municipality defaults loaded from .env
+    env_config.py   reading and writing the local .env
     pdfs.py         reading reports and the bill of law
     banco.py        SQLite storage, auction folders and migration
     atualizacao.py  reconciliation of new PDFs with an existing auction
@@ -453,10 +481,13 @@ AuctionReport/
     test_edicao.py
     test_template.py
     test_banco.py
+    test_contas.py
     test_atualizacao.py
     test_exportacao.py
     test_cli.py
+    test_env_config.py
     test_importacao.py
+    test_tui.py
     test_integracao.py
   instalar.bat / iniciar.bat   Windows setup and launcher
   instalar.sh / iniciar.sh     Linux setup and launcher
