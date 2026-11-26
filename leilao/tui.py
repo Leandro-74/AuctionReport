@@ -57,7 +57,7 @@ from .banco import (
 from .entrada import DEFAULT_GROUPS, importar_pdfs
 from .exportacao import exportar
 from .models import Asset, Issue, Lot, ReportData, norm
-from .money import format_brl
+from .money import format_brl, parse_money
 
 console = Console()
 
@@ -331,7 +331,18 @@ def _tabela_lotes(data: ReportData) -> Table:
     tabela.add_column("Status", no_wrap=True)
     for lote in sorted(data.lotes, key=lambda l: l.numero_int):
         resultado = resultados.get(lote.numero)
-        if resultado:
+        if not lote.valor_informado:
+            quantidade = sum(1 for bem in data.bens if bem.lote == lote.numero)
+            tabela.add_row(
+                lote.numero,
+                lote.grupo,
+                lote.secao,
+                str(quantidade),
+                "sem valor",
+                "-",
+                "[red]SEM VALOR[/]",
+            )
+        elif resultado:
             status = "[green]OK[/]" if resultado.fecha else "[red]ERRO[/]"
             tabela.add_row(
                 lote.numero,
@@ -555,13 +566,21 @@ def _editar_lote(estado: Estado) -> None:
             f"[bold]Lote {lote.numero}[/]\n"
             f"Grupo: {lote.grupo}\nSeção: {lote.secao}\n"
             f"Conta: {conta_atual}\n"
-            f"Valor: {format_brl(lote.valor)}\n"
+            f"Valor da venda: "
+            f"{format_brl(lote.valor) if lote.valor_informado else 'sem valor'}\n"
             f"Observação: {lote.observacao or '-'}",
             border_style="blue",
         )
     )
-    valor_atual = format_brl(lote.valor, symbol=False)
-    novo_valor = Prompt.ask("Novo valor (Enter mantém)", default=valor_atual)
+    valor_atual = (
+        format_brl(lote.valor, symbol=False) if lote.valor_informado else ""
+    )
+    novo_valor = Prompt.ask(
+        "Valor da venda (Enter mantém; '-' = sem valor)",
+        default=valor_atual,
+    )
+    if novo_valor.strip() == "-":
+        novo_valor = ""
     novo_grupo = Prompt.ask("Grupo (Enter mantém)", default=lote.grupo)
     nova_secao = Prompt.ask("Seção (Enter mantém)", default=lote.secao)
     nova_obs = Prompt.ask("Observação (Enter mantém)", default=lote.observacao)
@@ -707,7 +726,9 @@ def _adicionar_remover(estado: Estado) -> None:
     )
     if opcao == "1":
         numero = Prompt.ask("Número do lote")
-        valor = Prompt.ask("Valor da venda", default="0,00")
+        valor = Prompt.ask(
+            "Valor da venda (Enter = sem valor)", default=""
+        )
         console.print(_tabela_grupos(data))
         grupo = Prompt.ask("Grupo", default=data.grupos[0].nome if data.grupos else "Prefeitura")
         secao = Prompt.ask("Seção", default="Bens em Geral")
@@ -1166,6 +1187,41 @@ def _abrir_edicao(estado: Estado) -> None:
         _pause()
 
 
+def _informar_valores_venda(lotes: list[Lot]) -> None:
+    if not lotes:
+        return
+    if not _confirm(
+        "O leilão já foi realizado? Informar os valores de venda agora?",
+        default=False,
+    ):
+        return
+    console.print(
+        "[dim]Digite o valor de venda de cada lote. "
+        "Enter em branco deixa o lote sem valor.[/]"
+    )
+    for lote in sorted(lotes, key=lambda l: l.numero_int):
+        avaliado = (
+            format_brl(lote.valor_avaliado)
+            if lote.valor_avaliado is not None
+            else "-"
+        )
+        while True:
+            texto = Prompt.ask(
+                f"Lote {lote.numero} (lance inicial {avaliado})",
+                default="",
+            ).strip()
+            if not texto:
+                lote.valor = Decimal("0.00")
+                lote.valor_informado = False
+                break
+            try:
+                lote.valor = parse_money(texto)
+                lote.valor_informado = True
+                break
+            except ValueError:
+                _erro("Valor inválido. Digite novamente.")
+
+
 def novo_leilao(estado: Estado) -> None:
     console.clear()
     _banner()
@@ -1206,9 +1262,18 @@ def novo_leilao(estado: Estado) -> None:
     if pasta is None:
         return
 
-    with console.status("[cyan]Lendo PDFs e criando o leilão...[/]"):
+    with console.status("[cyan]Lendo os PDFs...[/]"):
         try:
             grupos, lotes, bens, issues = importar_pdfs(relatorios, pl or None)
+        except Exception as exc:
+            _erro(str(exc))
+            _pause()
+            return
+
+    _informar_valores_venda(lotes)
+
+    with console.status("[cyan]Criando o leilão...[/]"):
+        try:
             data = criar_leilao(
                 pasta,
                 ReportData(grupos=grupos, lotes=lotes, bens=bens),
