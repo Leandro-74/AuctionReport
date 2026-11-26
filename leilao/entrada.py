@@ -1046,7 +1046,7 @@ def build_results(data: ReportData) -> None:
             )
         )
 
-    grupos_com_lotes = {norm(resultado.lote.grupo) for resultado in data.resultados}
+    grupos_com_lotes = {norm(lote.grupo) for lote in data.lotes}
     for grupo in data.grupos:
         if norm(grupo.nome) not in grupos_com_lotes:
             data.issues.append(

@@ -1,7 +1,73 @@
+import copy
 import os
 import unittest
+from decimal import Decimal
 
-from leilao.tui import _limpar_caminho
+from leilao.entrada import DEFAULT_GROUPS, build_results
+from leilao.models import Asset, Group, Lot, ReportData
+from leilao.tui import _limpar_caminho, _resumo_grupo
+
+
+def _data_nao_vendida():
+    data = ReportData(
+        grupos=[
+            copy.deepcopy(DEFAULT_GROUPS["Prefeitura"]),
+            copy.deepcopy(DEFAULT_GROUPS["Saúde"]),
+        ],
+        lotes=[
+            Lot(
+                numero="01",
+                valor=Decimal("0.00"),
+                valor_avaliado=Decimal("100.00"),
+                valor_informado=False,
+                grupo="Prefeitura",
+                secao="Bens",
+            ),
+            Lot(
+                numero="02",
+                valor=Decimal("0.00"),
+                valor_avaliado=Decimal("50.00"),
+                valor_informado=False,
+                grupo="Saúde",
+                secao="Bens",
+            ),
+        ],
+        bens=[
+            Asset(lote="01", descricao="MESA", origem="Prefeitura"),
+            Asset(lote="01", descricao="CADEIRA", origem="Prefeitura"),
+            Asset(lote="02", descricao="MACA", origem="Saúde"),
+        ],
+        venda_realizada=False,
+    )
+    build_results(data)
+    return data
+
+
+class ResumoGrupoTests(unittest.TestCase):
+    def test_conta_lotes_e_bens_de_venda_nao_realizada(self):
+        data = _data_nao_vendida()
+        self.assertEqual(
+            _resumo_grupo(data, "Prefeitura"), (1, 2, Decimal("100.00"))
+        )
+        self.assertEqual(
+            _resumo_grupo(data, "Saúde"), (1, 1, Decimal("50.00"))
+        )
+
+    def test_nao_avisa_grupo_sem_lotes_quando_venda_nao_realizada(self):
+        data = _data_nao_vendida()
+        self.assertFalse(
+            [i for i in data.issues if "não tem lotes" in i.mensagem],
+            [str(i) for i in data.issues],
+        )
+
+    def test_avisa_grupo_realmente_sem_lotes(self):
+        data = _data_nao_vendida()
+        data.grupos.append(Group(nome="Vazio", aba="Relatório Vazio"))
+        data.issues = []
+        build_results(data)
+        avisos = [i for i in data.issues if "não tem lotes" in i.mensagem]
+        self.assertEqual(len(avisos), 1, [str(i) for i in data.issues])
+        self.assertIn("Vazio", avisos[0].mensagem)
 
 
 class CaminhoTests(unittest.TestCase):

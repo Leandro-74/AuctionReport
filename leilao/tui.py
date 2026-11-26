@@ -275,6 +275,26 @@ def _ensure_data(estado: Estado) -> bool:
     return False
 
 
+def _resumo_grupo(data: ReportData, nome: str) -> tuple[int, int, Decimal]:
+    chave = norm(nome)
+    lotes = [lote for lote in data.lotes if norm(lote.grupo) == chave]
+    numeros = {lote.numero for lote in lotes}
+    bens = sum(
+        1 for bem in data.bens if bem.incluido and bem.lote in numeros
+    )
+    if data.venda_realizada:
+        total = sum(
+            (lote.valor for lote in lotes if lote.valor_informado),
+            Decimal("0.00"),
+        )
+    else:
+        total = sum(
+            (lote.valor_avaliado or Decimal("0.00") for lote in lotes),
+            Decimal("0.00"),
+        )
+    return len(lotes), bens, total
+
+
 def _tabela_grupos(data: ReportData) -> Table:
     tabela = Table(box=box.SIMPLE_HEAVY, header_style="bold cyan")
     tabela.add_column("Grupo", no_wrap=True)
@@ -283,15 +303,12 @@ def _tabela_grupos(data: ReportData) -> Table:
     tabela.add_column("Bens", justify="right", no_wrap=True)
     tabela.add_column("Valor total", justify="right", no_wrap=True)
     for grupo in sorted(data.grupos, key=lambda g: (g.ordem, g.nome)):
-        resultados = [
-            r for r in data.resultados if norm(r.lote.grupo) == norm(grupo.nome)
-        ]
-        total = sum((r.lote.valor for r in resultados), Decimal("0.00"))
+        lotes, bens, total = _resumo_grupo(data, grupo.nome)
         tabela.add_row(
             grupo.nome,
             grupo.aba,
-            str(len(resultados)),
-            str(sum(len(r.bens) for r in resultados)),
+            str(lotes),
+            str(bens),
             format_brl(total),
         )
     return tabela
