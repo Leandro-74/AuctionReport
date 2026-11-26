@@ -1506,7 +1506,7 @@ def main_tui() -> int:
                 ("4", "Atualizar com PDFs", "Comparar PDFs novos com o banco atual"),
                 ("5", "Exportar", "Gerar o XLSX para revisão"),
                 ("6", "Conferir", "Validar somas e avisos"),
-                ("7", "Grupos e contas", "Editar dados bancários e abas"),
+                ("7", "Grupos e contas", "Grupos, contas de depósito e padrões do .env"),
                 ("8", "Migrar planilha antiga", "Converter um .xlsx antigo em banco"),
                 ("9", "Novo leilão vazio", "Criar um leilão em branco"),
                 ("0", "Sair", ""),
