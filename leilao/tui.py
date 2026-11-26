@@ -993,7 +993,6 @@ def _grupos(estado: Estado) -> None:
             ("2", "Adicionar grupo", "Nova aba de secretaria"),
             ("3", "Remover grupo", "Só se não houver lotes"),
             ("4", "Contas de depósito", "Contas compartilhadas entre lotes"),
-            ("5", "Configuração padrão", "Editar os valores padrão do .env"),
             ("0", "Voltar", ""),
         ],
     )
@@ -1063,8 +1062,6 @@ def _grupos(estado: Estado) -> None:
         _pause()
     elif opcao == "4":
         _contas(estado)
-    elif opcao == "5":
-        _config_env()
 
 
 # ---------------------------------------------------------------------------
@@ -1509,6 +1506,7 @@ def main_tui() -> int:
                 ("7", "Grupos e contas", "Grupos, contas de depósito e padrões do .env"),
                 ("8", "Migrar planilha antiga", "Converter um .xlsx antigo em banco"),
                 ("9", "Novo leilão vazio", "Criar um leilão em branco"),
+                ("10", "Configuração padrão", "Editar os valores do .env"),
                 ("0", "Sair", ""),
             ],
         )
@@ -1544,6 +1542,8 @@ def main_tui() -> int:
                 migrar_leilao(estado)
             elif opcao == "9":
                 novo_leilao_vazio(estado)
+            elif opcao == "10":
+                _config_env()
             elif opcao == "0":
                 console.print("[dim]Até mais.[/]")
                 return 0
