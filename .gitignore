@@ -36,3 +36,6 @@ Thumbs.db
 *.log
 .env
 .env.bak
+config.json
+config.json.bak
+config.json.tmp

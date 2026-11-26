@@ -7,7 +7,7 @@ import os
 import shlex
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from pathlib import Path
 
@@ -42,6 +42,7 @@ from .edicao import (
     remover_lote,
     substituir_descricao,
 )
+from . import config, config_store
 from .atualizacao import planejar_atualizacao
 from .config import AGENCIA, MUNICIPIO
 from .banco import (
@@ -54,7 +55,6 @@ from .banco import (
     salvar_leilao,
 )
 from .entrada import DEFAULT_GROUPS, importar_pdfs
-from .env_config import CAMPOS, salvar as salvar_env, valores_atuais
 from .exportacao import exportar
 from .models import Asset, Issue, Lot, ReportData, norm
 from .money import format_brl
@@ -926,8 +926,69 @@ def _contas(estado: Estado) -> None:
             _pause()
 
 
-def _config_env() -> None:
-    valores = valores_atuais()
+def _valores_configuracao() -> dict[str, str]:
+    try:
+        return asdict(config_store.carregar())
+    except ValueError:
+        return asdict(config_store.Configuracao())
+
+
+def _reiniciar() -> None:
+    try:
+        if getattr(sys, "frozen", False):
+            os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
+        else:
+            os.execv(
+                sys.executable,
+                [sys.executable, "-m", "leilao", *sys.argv[1:]],
+            )
+    except OSError as exc:
+        console.print(
+            Panel(
+                f"Não foi possível reiniciar automaticamente: {exc}\n"
+                "Feche e abra a ferramenta novamente.",
+                title="[bold yellow]Aviso[/]",
+                border_style="yellow",
+            )
+        )
+        _pause()
+
+
+def _assistente_inicial() -> bool:
+    valores = asdict(config_store.Configuracao())
+    console.clear()
+    _banner()
+    console.print(
+        Panel(
+            "Parece ser a primeira execução.\n"
+            "Informe os dados padrão do município. Eles poderão ser\n"
+            "alterados depois em Configuração padrão.\n\n"
+            "Os valores mostrados são apenas exemplos.",
+            title="Configuração inicial",
+            border_style="blue",
+        )
+    )
+    for campo, rotulo in config_store.CAMPOS:
+        valores[campo] = Prompt.ask(
+            rotulo, default=valores[campo]
+        ).strip()
+    if not _confirm("Salvar esta configuração?", default=True):
+        console.print("[dim]Configuração não salva.[/]")
+        _pause()
+        return False
+    try:
+        caminho = config_store.salvar(config_store.Configuracao(**valores))
+    except Exception as exc:
+        _erro(f"Não foi possível salvar a configuração: {exc}")
+        _pause()
+        return False
+    _sucesso(f"Configuração salva em:\n{caminho}")
+    _pause()
+    return True
+
+
+def _configuracao() -> None:
+    valores = _valores_configuracao()
     while True:
         console.clear()
         _banner()
@@ -935,16 +996,24 @@ def _config_env() -> None:
             Panel(
                 "Valores padrão para novos grupos e novos leilões.\n"
                 "Leilões existentes não são alterados por esta tela.\n"
-                "Após salvar, feche e abra a ferramenta para aplicar.",
-                title="Configuração padrão (.env)",
+                f"Arquivo: {config_store.caminho_config()}",
+                title="Configuração padrão",
                 border_style="blue",
             )
         )
+        if config.ERRO_CONFIG:
+            console.print(
+                Panel(
+                    config.ERRO_CONFIG,
+                    title="[bold yellow]Configuração inválida[/]",
+                    border_style="yellow",
+                )
+            )
         tabela = Table(box=box.SIMPLE_HEAVY, header_style="bold cyan")
         tabela.add_column("Nº", justify="right", width=3)
         tabela.add_column("Campo")
         tabela.add_column("Valor", overflow="ellipsis", max_width=48)
-        for numero, (chave, rotulo, _) in enumerate(CAMPOS, start=1):
+        for numero, (chave, rotulo) in enumerate(config_store.CAMPOS, start=1):
             tabela.add_row(str(numero), rotulo, valores[chave])
         console.print(tabela)
         escolha = Prompt.ask(
@@ -952,23 +1021,30 @@ def _config_env() -> None:
             default="0",
         ).strip()
         if escolha == "0":
-            if _confirm("Salvar as alterações no .env?", default=True):
-                try:
-                    salvar_env(valores)
-                except Exception as exc:
-                    _erro(f"Não foi possível salvar o .env: {exc}")
-                    _pause()
-                    return
-                _sucesso(
-                    "Configuração salva. Feche e abra a ferramenta para aplicar."
-                )
-            else:
+            if not _confirm("Salvar as alterações?", default=True):
                 console.print("[dim]Nada alterado.[/]")
-            _pause()
+                _pause()
+                return
+            try:
+                caminho = config_store.salvar(
+                    config_store.Configuracao(**valores)
+                )
+            except Exception as exc:
+                _erro(f"Não foi possível salvar a configuração: {exc}")
+                _pause()
+                return
+            _sucesso(f"Configuração salva em:\n{caminho}")
+            if _confirm("Reiniciar a ferramenta agora para aplicar?", default=True):
+                _reiniciar()
+            else:
+                console.print(
+                    "[yellow]Feche e abra a ferramenta para aplicar.[/]"
+                )
+                _pause()
             return
         try:
             indice = int(escolha) - 1
-            chave, rotulo, _ = CAMPOS[indice]
+            chave, rotulo = config_store.CAMPOS[indice]
         except (ValueError, IndexError):
             _erro("Campo inválido.")
             _pause()
@@ -1488,6 +1564,30 @@ def _carregar_padrao(estado: Estado) -> None:
 
 
 def main_tui() -> int:
+    if config.ERRO_CONFIG:
+        _erro(config.ERRO_CONFIG)
+        if _confirm("Abrir a configuração agora?", default=True):
+            _configuracao()
+        return 1
+    if not config_store.existe_json():
+        if config_store.existe_legado():
+            try:
+                migrado = config_store.migrar_legado()
+            except Exception as exc:
+                _erro(f"Não foi possível migrar o .env: {exc}")
+                return 1
+            if migrado is not None:
+                _sucesso(
+                    "Configuração antiga migrada para:\n"
+                    f"{config_store.caminho_config()}"
+                )
+                _pause()
+        else:
+            if not _assistente_inicial():
+                return 1
+            _reiniciar()
+            return 1
+
     estado = Estado()
     _carregar_padrao(estado)
     while True:
@@ -1506,7 +1606,7 @@ def main_tui() -> int:
                 ("7", "Grupos e contas", "Grupos, contas de depósito e padrões do .env"),
                 ("8", "Migrar planilha antiga", "Converter um .xlsx antigo em banco"),
                 ("9", "Novo leilão vazio", "Criar um leilão em branco"),
-                ("10", "Configuração padrão", "Editar os valores do .env"),
+                ("10", "Configuração padrão", "Editar a configuração do usuário"),
                 ("0", "Sair", ""),
             ],
         )
@@ -1543,7 +1643,7 @@ def main_tui() -> int:
             elif opcao == "9":
                 novo_leilao_vazio(estado)
             elif opcao == "10":
-                _config_env()
+                _configuracao()
             elif opcao == "0":
                 console.print("[dim]Até mais.[/]")
                 return 0

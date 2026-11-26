@@ -1,46 +1,26 @@
-"""Load local configuration from environment variables."""
+"""Load local configuration from the user profile."""
 
 from __future__ import annotations
 
-import os
-import sys
-from pathlib import Path
+from .config_store import Configuracao, base_dir, carregar
 
-from dotenv import load_dotenv
+BASE_DIR = base_dir()
 
+ERRO_CONFIG = ""
+try:
+    CONFIG = carregar()
+except ValueError as exc:
+    CONFIG = Configuracao()
+    ERRO_CONFIG = str(exc)
 
-def _base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parents[1]
-
-
-BASE_DIR = _base_dir()
-load_dotenv(BASE_DIR / ".env")
-
-
-def _env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
-
-
-MUNICIPIO = _env("AUCTIONREPORT_MUNICIPIO", "MUNICÍPIO DE EXEMPLO")
-TITULO_SAUDE = _env(
-    "AUCTIONREPORT_TITULO_SAUDE", "FUNDO MUNICIPAL DE SAÚDE"
-)
-SUBTITULO_PREFEITURA = _env(
-    "AUCTIONREPORT_SUBTITULO_PREFEITURA", "Prefeitura Municipal"
-)
-SUBTITULO_SAUDE = _env(
-    "AUCTIONREPORT_SUBTITULO_SAUDE", "Fundo Municipal de Saúde"
-)
-AGENCIA = _env("AUCTIONREPORT_AGENCIA", "0000-0 (Banco de Exemplo)")
-CNPJ_MUNICIPIO = _env(
-    "AUCTIONREPORT_CNPJ_MUNICIPIO", "00.000.000/0001-00"
-)
-CNPJ_SAUDE = _env("AUCTIONREPORT_CNPJ_SAUDE", "00.000.000/0001-01")
-CONTA_CORRENTE_PREFEITURA = _env(
-    "AUCTIONREPORT_CONTA_PREFEITURA", "00000-0"
-)
-CONTA_CORRENTE_SAUDE = _env("AUCTIONREPORT_CONTA_SAUDE", "00000-2")
+MUNICIPIO = CONFIG.municipio
+TITULO_SAUDE = CONFIG.titulo_saude
+SUBTITULO_PREFEITURA = CONFIG.subtitulo_prefeitura
+SUBTITULO_SAUDE = CONFIG.subtitulo_saude
+AGENCIA = CONFIG.agencia
+CNPJ_MUNICIPIO = CONFIG.cnpj_municipio
+CNPJ_SAUDE = CONFIG.cnpj_saude
+CONTA_CORRENTE_PREFEITURA = CONFIG.conta_prefeitura
+CONTA_CORRENTE_SAUDE = CONFIG.conta_saude
 TITULO_CONTA_MUNICIPIO = f"{MUNICIPIO}: CONTAS PARA DEPÓSITO"
 TITULO_CONTA_SAUDE = f"{TITULO_SAUDE}: CONTAS PARA DEPÓSITO"

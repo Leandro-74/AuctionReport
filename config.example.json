@@ -1,0 +1,11 @@
+{
+  "municipio": "MUNICÍPIO DE EXEMPLO",
+  "titulo_saude": "FUNDO MUNICIPAL DE SAÚDE",
+  "subtitulo_prefeitura": "Prefeitura Municipal",
+  "subtitulo_saude": "Fundo Municipal de Saúde",
+  "agencia": "0000-0 (Banco de Exemplo)",
+  "cnpj_municipio": "00.000.000/0001-00",
+  "cnpj_saude": "00.000.000/0001-01",
+  "conta_prefeitura": "00000-0",
+  "conta_saude": "00000-2"
+}
