@@ -337,9 +337,10 @@ Aparência reproduzida do modelo:
 - fontes Calibri/Arial, cabeçalhos cinza `D9D9D9`, linhas alternadas em branco e
   `F2F2F2`, bordas finas `999999`, formato `R$ #,##0.00` e margens do modelo;
 - colunas de título e de código largas o suficiente para exibir os cabeçalhos e as
-  contas de 19 dígitos no Google Planilhas;
-- códigos gravados como texto, preservando zeros à esquerda e evitando notação
-  científica.
+  contas resumidas no Google Planilhas;
+- altura das linhas cresce quando o texto quebrado precisa de mais linhas;
+- códigos gravados como texto; contas removem os zeros à direita até sobrar um único
+  zero, evitando notação científica.
 
 As abas auxiliares são criadas automaticamente conforme os dados:
 

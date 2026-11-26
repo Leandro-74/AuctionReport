@@ -338,9 +338,11 @@ The template layout is reproduced with:
   the total;
 - Calibri/Arial fonts, gray `D9D9D9` headers, alternating white and `F2F2F2` rows,
   thin `999999` borders, `R$ #,##0.00` format and template margins;
-- title and code columns wide enough to show headers and 19-digit account codes in
+- title and code columns wide enough to show headers and shortened account codes in
   Google Sheets;
-- codes written as text, preserving leading zeros and avoiding scientific notation.
+- row heights grow when the wrapped text needs more lines;
+- codes written as text; account codes drop trailing zeros down to a single zero to
+  avoid scientific notation.
 
 Auxiliary sheets are created automatically from the data:
 
