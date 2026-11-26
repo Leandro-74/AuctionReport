@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.svg" alt="Logo do AuctionReport" width="120"></p>
+
 <h1 align="center">AuctionReport</h1>
 
 <p align="center">
@@ -496,6 +498,7 @@ AuctionReport/
   instalar.bat / iniciar.bat   instalação e execução no Windows
   instalar.sh / iniciar.sh     instalação e execução no Linux
   testar.sh                    execução dos testes no Linux
+  assets/logo.svg              logo do projeto
   .env.example                 modelo de configuração com valores fictícios
   README.md
   README.pt-BR.md
