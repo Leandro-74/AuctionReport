@@ -12,8 +12,8 @@
 
 O AuctionReport é uma ferramenta local em Python que monta os relatórios de bens de
 leilão de um município brasileiro. Ela lê os PDFs exportados pelo sistema BIRT
-(Prefeitura, Saúde e, se houver, Educação), lê o projeto de lei que define os lotes e
-guarda o leilão em um banco SQLite.
+(Prefeitura e Saúde), lê o projeto de lei que define os lotes e guarda o leilão em um
+banco SQLite.
 
 Cada leilão fica em uma pasta própria, com os PDFs de origem e os arquivos gerados.
 Os dados são editados em uma interface TUI no terminal. O XLSX final é gerado quando
@@ -21,8 +21,7 @@ necessário. Abra-o para revisar e exporte para PDF manualmente se precisar.
 
 ## Funcionalidades
 
-- Lê os PDFs do tipo **Termo de Responsabilidade** da Prefeitura, da Saúde e, se
-  houver, da Educação.
+- Lê os PDFs do tipo **Termo de Responsabilidade** da Prefeitura e da Saúde.
 - Lê o **Projeto de Lei** e identifica os lotes, os patrimônios citados e os valores
   avaliados.
 - Cria uma **pasta e um banco SQLite** para cada leilão.
@@ -89,13 +88,11 @@ As variáveis são:
 | `AUCTIONREPORT_MUNICIPIO` | Nome do município usado nos títulos dos relatórios |
 | `AUCTIONREPORT_TITULO_SAUDE` | Título do fundo de saúde |
 | `AUCTIONREPORT_SUBTITULO_PREFEITURA` | Subtítulo da Prefeitura |
-| `AUCTIONREPORT_SUBTITULO_EDUCACAO` | Subtítulo da Educação |
 | `AUCTIONREPORT_SUBTITULO_SAUDE` | Subtítulo da Saúde |
 | `AUCTIONREPORT_AGENCIA` | Agência bancária padrão |
 | `AUCTIONREPORT_CNPJ_MUNICIPIO` | CNPJ do município |
 | `AUCTIONREPORT_CNPJ_SAUDE` | CNPJ do fundo de saúde |
 | `AUCTIONREPORT_CONTA_PREFEITURA` | Conta corrente da Prefeitura |
-| `AUCTIONREPORT_CONTA_EDUCACAO` | Conta corrente da Educação |
 | `AUCTIONREPORT_CONTA_SAUDE` | Conta corrente da Saúde |
 
 Esses valores também podem ser alterados depois no menu **Grupos e contas**.
@@ -273,8 +270,7 @@ Aparência reproduzida do modelo:
 As abas auxiliares são criadas automaticamente conforme os dados:
 
 - `Relatório Todos os Veículos` — todos os veículos;
-- `Relatório Veículos` — veículos da Prefeitura/Educação (quando há também veículos da
-  Saúde);
+- `Relatório Veículos` — veículos municipais (quando há também veículos da Saúde);
 - `Relatório Veículos Hospital` — veículos da Saúde (quando há também veículos
   municipais);
 - `Relatório Mobiliário em Geral` — móveis municipais;
@@ -357,7 +353,7 @@ A planilha antiga tem estas abas:
 | Conta Crédito / Conta Débito | Contas contábeis. Podem ficar vazias. |
 | Descrição | Descrição que sai no relatório. |
 | Valor Contábil | Valor do sistema, usado só como referência. |
-| Origem | Prefeitura, Saúde ou Educação. |
+| Origem | Prefeitura ou Saúde. |
 | Categoria | Veículos, Mobiliário, Informática, Hospitalar ou Outros. |
 | Observação | Texto livre. |
 

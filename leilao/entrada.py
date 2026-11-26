@@ -19,11 +19,9 @@ from .config import (
     AGENCIA,
     CNPJ_MUNICIPIO,
     CNPJ_SAUDE,
-    CONTA_CORRENTE_EDUCACAO,
     CONTA_CORRENTE_PREFEITURA,
     CONTA_CORRENTE_SAUDE,
     MUNICIPIO,
-    SUBTITULO_EDUCACAO,
     SUBTITULO_PREFEITURA,
     SUBTITULO_SAUDE,
 )
@@ -55,21 +53,10 @@ DEFAULT_GROUPS: dict[str, Group] = {
         conta_corrente=CONTA_CORRENTE_PREFEITURA,
         cnpj=CNPJ_MUNICIPIO,
     ),
-    "Educação": Group(
-        nome="Educação",
-        aba="Relatório Bens da Educação",
-        ordem=2,
-        titulo=MUNICIPIO,
-        subtitulo=SUBTITULO_EDUCACAO,
-        conta="Conta de depósito para lotes da Secretaria de Educação",
-        agencia=AGENCIA,
-        conta_corrente=CONTA_CORRENTE_EDUCACAO,
-        cnpj=CNPJ_MUNICIPIO,
-    ),
     "Saúde": Group(
         nome="Saúde",
         aba="Relatório Bens da Saúde",
-        ordem=3,
+        ordem=2,
         titulo=MUNICIPIO,
         subtitulo=SUBTITULO_SAUDE,
         conta="Conta de depósito para lotes da Saúde",
@@ -84,8 +71,6 @@ def normalize_source(label: str) -> str:
     texto = norm(label)
     if "SAUDE" in texto:
         return "Saúde"
-    if "EDUCA" in texto:
-        return "Educação"
     if "PREFEITURA" in texto or "MUNICIPIO" in texto:
         return "Prefeitura"
     return label.strip() or "Prefeitura"
@@ -1099,5 +1084,5 @@ def ler_entrada(path: str | Path) -> ReportData:
 
 def modelo_entrada(path: str | Path) -> Path:
     """Cria uma planilha de entrada vazia, com os grupos padrão."""
-    grupos = [DEFAULT_GROUPS["Prefeitura"], DEFAULT_GROUPS["Educação"], DEFAULT_GROUPS["Saúde"]]
+    grupos = [DEFAULT_GROUPS["Prefeitura"], DEFAULT_GROUPS["Saúde"]]
     return write_entrada(path, grupos, [], [])

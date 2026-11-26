@@ -868,7 +868,6 @@ def novo_leilao(estado: Estado) -> None:
     for label, titulo in (
         ("Prefeitura", "Relatório da Prefeitura"),
         ("Saúde", "Relatório da Saúde"),
-        ("Educação", "Relatório da Educação (opcional)"),
     ):
         console.print(f"[bold]{titulo}[/]")
         caminho = selecionar_pdf(titulo)
@@ -951,7 +950,7 @@ def novo_leilao_vazio(estado: Estado) -> None:
         return
     grupos = [
         copy.deepcopy(DEFAULT_GROUPS[nome])
-        for nome in ("Prefeitura", "Educação", "Saúde")
+        for nome in ("Prefeitura", "Saúde")
     ]
     try:
         data = criar_leilao(pasta, ReportData(grupos=grupos))
@@ -1082,7 +1081,6 @@ def atualizar_leilao(estado: Estado) -> None:
     for label, titulo in (
         ("Prefeitura", "Relatório atualizado da Prefeitura"),
         ("Saúde", "Relatório atualizado da Saúde"),
-        ("Educação", "Relatório atualizado da Educação (opcional)"),
     ):
         console.print(f"[bold]{titulo}[/]")
         caminho = selecionar_pdf(titulo)

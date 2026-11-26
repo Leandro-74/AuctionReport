@@ -337,8 +337,6 @@ def _grupos_de(itens: list[ItemView]) -> list[str]:
 
 def _nome_grupos(itens: list[ItemView]) -> str:
     nomes = _grupos_de(itens)
-    if set(nomes) == {"Prefeitura", "Educação"}:
-        return "Prefeitura e Sec. da Educação"
     if len(nomes) == 1:
         return nomes[0]
     if len(nomes) == 2:

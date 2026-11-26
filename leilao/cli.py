@@ -83,7 +83,6 @@ def _cmd_importar(args: argparse.Namespace) -> int:
     for label, caminho in (
         ("Prefeitura", args.prefeitura),
         ("Saúde", args.saude),
-        ("Educação", args.educacao),
     ):
         if caminho:
             if not Path(caminho).exists():
@@ -120,7 +119,6 @@ def _cmd_novo(args: argparse.Namespace) -> int:
     for label, caminho in (
         ("Prefeitura", args.prefeitura),
         ("Saúde", args.saude),
-        ("Educação", args.educacao),
     ):
         if caminho:
             if not Path(caminho).exists():
@@ -173,7 +171,6 @@ def _cmd_atualizar(args: argparse.Namespace) -> int:
     for label, caminho in (
         ("Prefeitura", args.prefeitura),
         ("Saúde", args.saude),
-        ("Educação", args.educacao),
     ):
         if caminho:
             if not Path(caminho).exists():
@@ -360,7 +357,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_novo.add_argument("--prefeitura", help="PDF do relatório da Prefeitura")
     p_novo.add_argument("--saude", help="PDF do relatório da Saúde")
-    p_novo.add_argument("--educacao", help="PDF do relatório da Educação")
     p_novo.add_argument("--pl", help="PDF do projeto de lei com os lotes")
     p_novo.add_argument(
         "--pasta", required=True, help="pasta do leilão a criar"
@@ -373,7 +369,6 @@ def main(argv: list[str] | None = None) -> int:
     p_at.add_argument("banco", nargs="?", default=BANCO_NOME)
     p_at.add_argument("--prefeitura", help="PDF novo da Prefeitura")
     p_at.add_argument("--saude", help="PDF novo da Saúde")
-    p_at.add_argument("--educacao", help="PDF novo da Educação")
     p_at.add_argument("--pl", help="PDF do projeto de lei")
     p_at.add_argument(
         "--aplicar",
@@ -409,7 +404,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_imp.add_argument("--prefeitura", help="PDF do relatório da Prefeitura")
     p_imp.add_argument("--saude", help="PDF do relatório da Saúde")
-    p_imp.add_argument("--educacao", help="PDF do relatório da Educação")
     p_imp.add_argument("--pl", help="PDF do projeto de lei com os lotes")
     p_imp.add_argument(
         "-o", "--saida", default="leilao_entrada.xlsx", help="planilha de entrada a criar"

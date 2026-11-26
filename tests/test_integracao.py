@@ -5,8 +5,8 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from leilao.entrada import DEFAULT_GROUPS, importar_pdfs, ler_entrada, write_entrada
-from leilao.models import Asset, Lot
+from leilao.entrada import importar_pdfs, ler_entrada, write_entrada
+from leilao.models import Asset, Group, Lot
 from leilao.relatorio import gerar_relatorio
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -48,7 +48,17 @@ class IntegracaoLote14Tests(unittest.TestCase):
             grupo="Educação",
             secao="Mobiliário em Geral",
         )
-        grupo = DEFAULT_GROUPS["Educação"]
+        grupo = Group(
+            nome="Educação",
+            aba="Relatório Bens da Educação",
+            ordem=1,
+            titulo="MUNICÍPIO DE EXEMPLO",
+            subtitulo="Secretaria de Educação",
+            conta="Conta de depósito para lotes da Educação",
+            agencia="0000-0 (Banco de Exemplo)",
+            conta_corrente="00000-0",
+            cnpj="00.000.000/0001-00",
+        )
 
         with tempfile.TemporaryDirectory() as pasta:
             entrada = Path(pasta) / "entrada.xlsx"

@@ -12,8 +12,8 @@
 
 AuctionReport is a local Python tool that prepares the asset reports for public
 auctions of a Brazilian municipality. It reads the PDF reports exported by the BIRT
-system (Prefeitura, Saúde and, when available, Educação), reads the bill of law that
-defines the lots, and stores the auction in a SQLite database.
+system (Prefeitura and Saúde), reads the bill of law that defines the lots, and
+stores the auction in a SQLite database.
 
 Each auction lives in its own folder, with the source PDFs and the generated files.
 Data is edited in a terminal UI (TUI). The final XLSX is generated on demand. Open it
@@ -21,8 +21,7 @@ to review, then export to PDF manually if needed.
 
 ## Features
 
-- Read the **Termo de Responsabilidade** PDFs from Prefeitura, Saúde and, when
-  available, Educação.
+- Read the **Termo de Responsabilidade** PDFs from Prefeitura and Saúde.
 - Read the **bill of law** and identify lots, asset codes and appraised values.
 - Create a **folder and SQLite database** for each auction.
 - Copy the source PDFs into the auction folder.
@@ -87,13 +86,11 @@ The variables are:
 | `AUCTIONREPORT_MUNICIPIO` | Municipality name used in report titles |
 | `AUCTIONREPORT_TITULO_SAUDE` | Health fund title |
 | `AUCTIONREPORT_SUBTITULO_PREFEITURA` | Prefeitura subtitle |
-| `AUCTIONREPORT_SUBTITULO_EDUCACAO` | Educação subtitle |
 | `AUCTIONREPORT_SUBTITULO_SAUDE` | Saúde subtitle |
 | `AUCTIONREPORT_AGENCIA` | Default bank branch |
 | `AUCTIONREPORT_CNPJ_MUNICIPIO` | Municipality CNPJ |
 | `AUCTIONREPORT_CNPJ_SAUDE` | Health fund CNPJ |
 | `AUCTIONREPORT_CONTA_PREFEITURA` | Prefeitura checking account |
-| `AUCTIONREPORT_CONTA_EDUCACAO` | Educação checking account |
 | `AUCTIONREPORT_CONTA_SAUDE` | Saúde checking account |
 
 You can also change these values later in the **Grupos e contas** menu.
@@ -275,8 +272,7 @@ The template layout is reproduced with:
 Auxiliary sheets are created automatically from the data:
 
 - `Relatório Todos os Veículos` — all vehicles;
-- `Relatório Veículos` — Prefeitura/Educação vehicles (when there are also Saúde
-  vehicles);
+- `Relatório Veículos` — municipal vehicles (when there are also Saúde vehicles);
 - `Relatório Veículos Hospital` — Saúde vehicles (when there are also municipal
   vehicles);
 - `Relatório Mobiliário em Geral` — municipal furniture;
@@ -359,7 +355,7 @@ The legacy workbook has these sheets:
 | Conta Crédito / Conta Débito | Accounting accounts. They may be empty. |
 | Descrição | Description used in the report. |
 | Valor Contábil | Value from the system, used only as reference. |
-| Origem | Prefeitura, Saúde or Educação. |
+| Origem | Prefeitura or Saúde. |
 | Categoria | Veículos, Mobiliário, Informática, Hospitalar or Outros. |
 | Observação | Free text. |
 

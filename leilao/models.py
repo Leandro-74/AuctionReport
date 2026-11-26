@@ -61,7 +61,7 @@ class Lot:
 
 @dataclass
 class Group:
-    """Uma aba do relatório (Prefeitura, Educação, Saúde...)."""
+    """Uma aba do relatório (Prefeitura, Saúde...)."""
 
     nome: str
     aba: str
