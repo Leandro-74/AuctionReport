@@ -1,12 +1,12 @@
 import unittest
-from decimal import Decimal
 from pathlib import Path
 
 from leilao.pdfs import classify_asset, parse_asset_report, parse_law
 
 RAIZ = Path(__file__).resolve().parents[1]
-PREF = RAIZ / "Report_prefeitura.pdf"
-SAUDE = RAIZ / "Report_saúde.pdf"
+MODELO = RAIZ / "novo_modelo"
+PREF = MODELO / "Report_prefeitura.pdf"
+SAUDE = MODELO / "Report_saude.pdf"
 PL = RAIZ / "Projeto de Lei  - Autoriza Alienação de Bens -.pdf"
 
 
@@ -50,13 +50,18 @@ class ClassificacaoTests(unittest.TestCase):
 class RelatoriosTests(unittest.TestCase):
     def test_prefeitura(self):
         bens = parse_asset_report(PREF, "Prefeitura")
-        self.assertEqual(len(bens), 54)
-        self.assertEqual(sum(b.valor_contabil for b in bens), Decimal("226073.75"))
+        self.assertEqual(len(bens), 56)
+        self.assertTrue(all(b.conta_debito for b in bens))
+        self.assertTrue(all(b.conta_credito for b in bens))
+        self.assertTrue(all(b.valor_contabil is None for b in bens))
+        self.assertNotIn("Total de Registros", bens[-1].descricao)
 
     def test_saude(self):
         bens = parse_asset_report(SAUDE, "Saúde")
         self.assertEqual(len(bens), 37)
-        self.assertEqual(sum(b.valor_contabil for b in bens), Decimal("107365.14"))
+        self.assertTrue(all(b.conta_debito for b in bens))
+        self.assertTrue(all(b.conta_credito for b in bens))
+        self.assertTrue(all(b.valor_contabil is None for b in bens))
 
     def test_nao_ha_codigos_repetidos(self):
         codigos = [b.codigo for b in parse_asset_report(PREF, "Prefeitura")]

@@ -164,57 +164,87 @@ def classify_asset(descricao: str, origem: str = "") -> str:
     return "Outros"
 
 
+_ASSET_LINE = re.compile(
+    r"^(Bens Móveis|Bens Imóveis)\s+(\d+)\s+(.*?)\s+(\d{10,})\s+(\d{10,})\s*$"
+)
+
+_IGNORAR_INICIO = (
+    "MUNICIPIO",
+    "FUNDO MUNICIPAL",
+    "GERENCIAMENTO",
+    "CONSULTA DE BEM",
+    "TIPO:",
+    "TIPO CODIGO",
+    "PAG ",
+    "PAGINA",
+)
+
+_IGNORAR_TRECHO = (
+    "Total de Registros",
+    "IPM Sistemas",
+    "Identificador:",
+    "Emitido por:",
+    "Atende.Net",
+)
+
+
+def _ignorar_linha(linha: str) -> bool:
+    texto = norm(linha)
+    return any(texto.startswith(prefixo) for prefixo in _IGNORAR_INICIO) or any(
+        trecho in linha for trecho in _IGNORAR_TRECHO
+    )
+
+
 def parse_asset_report(path: str | Path, origem: str) -> list[Asset]:
-    """Lê um relatório do sistema (BIRT) e devolve os bens encontrados."""
+    """Read the current BIRT report with debit and credit accounts."""
     path = Path(path)
     if not path.exists():
         raise PdfError(f"arquivo não encontrado: {path}")
 
     bens: list[Asset] = []
+    atual: Asset | None = None
     try:
         with pdfplumber.open(path) as pdf:
-            for page_number, page in enumerate(pdf.pages, start=1):
-                tables = page.extract_tables() or []
-                for table in tables:
-                    for row in table:
-                        if not row or len(row) < 4:
-                            continue
-                        cells = [clean_text(cell) for cell in row]
-                        codigo = cells[1]
-                        if not codigo.isdigit():
-                            continue
-                        descricao = cells[2]
-                        if not descricao:
+            for page in pdf.pages:
+                texto = page.extract_text() or ""
+                for raw in texto.splitlines():
+                    linha = clean_text(raw)
+                    if not linha:
+                        continue
+                    achado = _ASSET_LINE.match(linha)
+                    if achado:
+                        if atual is not None:
+                            bens.append(atual)
+                        tipo, codigo, descricao, debito, credito = achado.groups()
+                        if not descricao.strip():
                             raise PdfError(
-                                f"{path.name}, página {page_number}: bem {codigo} sem descrição"
+                                f"{path.name}: bem {codigo} sem descrição"
                             )
-                        valor = None
-                        if cells[3]:
-                            try:
-                                valor = parse_money(cells[3])
-                            except ValueError as exc:
-                                raise PdfError(
-                                    f"{path.name}, página {page_number}, bem {codigo}: "
-                                    f"valor contábil inválido ({cells[3]!r})"
-                                ) from exc
-                        bens.append(
-                            Asset(
-                                tipo=cells[0] or "Bens Móveis",
-                                codigo=codigo,
-                                descricao=descricao,
-                                valor_contabil=valor,
-                                origem=origem,
-                                categoria=classify_asset(descricao, origem),
-                            )
+                        atual = Asset(
+                            tipo=tipo,
+                            codigo=codigo,
+                            conta_debito=debito,
+                            conta_credito=credito,
+                            descricao=descricao.strip(),
+                            origem=origem,
+                            categoria=classify_asset(descricao, origem),
                         )
+                        continue
+                    if atual is not None and not _ignorar_linha(linha):
+                        atual.descricao = clean_text(
+                            f"{atual.descricao} {linha}"
+                        )
+            if atual is not None:
+                bens.append(atual)
     except PdfError:
         raise
-    except Exception as exc:  # pdfplumber levanta vários tipos de erro
+    except Exception as exc:  # pdfplumber raises several error types
         raise PdfError(f"não foi possível ler {path.name}: {exc}") from exc
 
     if not bens:
         raise PdfError(
-            f"{path.name}: nenhum bem encontrado. O PDF está no formato do relatório do sistema?"
+            f"{path.name}: nenhum bem encontrado. "
+            "Use o relatório de consulta de bens do sistema."
         )
     return bens
 
