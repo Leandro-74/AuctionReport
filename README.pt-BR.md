@@ -230,7 +230,8 @@ A atualização é conservadora:
 - lotes, contas e observações existentes são preservados;
 - tipo, descrição e valor contábil são atualizados a partir do PDF;
 - bens novos usam o projeto de lei para sugerir o lote;
-- lotes novos começam sem valor de venda e podem ser completados em **Editar lote**;
+- lotes novos começam sem valor de venda; use **Registrar venda** se a venda ainda
+  não estiver registrada, ou **Editar lote** depois de registrada;
 - códigos ambíguos não são associados automaticamente;
 - bens que sumiram dos PDFs são mantidos e aparecem como aviso.
 
@@ -290,14 +291,18 @@ As alterações são salvas automaticamente no banco SQLite.
 
 O valor do projeto de lei é o **lance inicial**, não o valor final de venda.
 
-- Ao criar um leilão, a TUI pergunta se o leilão já foi realizado e permite informar o
-  valor de venda de cada lote.
-- Também é possível criar o leilão sem os valores de venda e preenchê-los depois em
-  **Editar leilão → Editar lote**.
-- Um lote sem valor de venda aparece como `SEM VALOR`.
-- A exportação do relatório exige o valor de venda de todos os lotes.
+- Ao criar um leilão, a TUI pergunta se ele já foi realizado. Se já foi, você informa o
+  valor de venda de cada lote na hora.
+- Se ainda não foi realizado, o leilão é criado como **não vendido**. A coluna de valor
+  mostra o lance inicial e o status é `NÃO VENDIDO`. Isso não é um erro.
+- Enquanto a venda não estiver registrada, **Editar leilão** mostra a opção
+  **Registrar venda**. Ela pede o valor de venda de todos os lotes e depois desaparece.
+- Se o leilão for criado depois de realizado, a opção não aparece, pois a venda já está
+  registrada.
+- Depois de registrar a venda, os valores ainda podem ser ajustados em **Editar lote**.
 
-O lance inicial fica no campo `Valor avaliado (PL)` como referência.
+O lance inicial fica no campo `Valor avaliado (PL)` como referência. A exportação do
+XLSX fica bloqueada enquanto a venda não for registrada.
 
 ## Como o valor é dividido
 

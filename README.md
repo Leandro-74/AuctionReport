@@ -230,7 +230,8 @@ The update is conservative:
 - existing lots, accounts and notes are preserved;
 - type, description and book value are updated from the PDF;
 - new assets use the bill of law to suggest a lot;
-- new lots start without a sale value and can be completed in **Editar lote**;
+- new lots start without a sale value; use **Registrar venda** if the sale is not
+  registered, or **Editar lote** after it is;
 - ambiguous codes are not assigned automatically;
 - assets missing from the PDFs are kept and reported as warnings.
 
@@ -290,14 +291,18 @@ Changes are saved automatically to the SQLite database.
 
 The value in the bill of law is the **initial bid**, not the final sale value.
 
-- When creating an auction, the TUI asks whether the auction was already held and lets
-  you enter the sale value of each lot.
-- You can also create the auction without sale values and fill them later in
-  **Editar leilão → Editar lote**.
-- A lot without a sale value is shown as `SEM VALOR`.
-- Exporting the report requires a sale value for every lot.
+- When creating an auction, the TUI asks whether the auction was already held. If it
+  was, you enter the sale value of each lot immediately.
+- If it was not held yet, the auction is created as **not sold**. The lot value shown in
+  the table is the initial bid, and the status is `NÃO VENDIDO`. This is not an error.
+- While the sale is not registered, **Editar leilão** shows the option
+  **Registrar venda**. It asks for the sale value of every lot and then disappears.
+- If the auction is created after it was held, the option is not shown because the sale
+  is already registered.
+- After the sale is registered, lot values can still be adjusted in **Editar lote**.
 
-The initial bid stays in the `Valor avaliado (PL)` field as a reference.
+The initial bid stays in the `Valor avaliado (PL)` field as a reference. Exporting the
+XLSX is blocked while the sale is not registered.
 
 ## How values are split
 
