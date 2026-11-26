@@ -362,6 +362,10 @@ Regras conferidas pelo banco e pela validação:
 
 O rateio é calculado na geração do relatório. Ele não é gravado no banco.
 
+Bancos criados antes do suporte a contas de depósito são migrados automaticamente. Os
+lotes existentes continuam usando a conta padrão do grupo até que uma conta específica
+seja escolhida.
+
 ## Planilha de entrada antiga
 
 Uma `leilao_entrada.xlsx` antiga pode ser migrada com **Migrar planilha antiga** ou

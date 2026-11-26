@@ -365,6 +365,9 @@ Rules enforced by the database and validation:
 The value split is calculated when the report is generated. It is not stored in the
 database.
 
+Databases created before deposit-account support are migrated automatically. Existing
+lots keep using their group's default account until a specific account is selected.
+
 ## Legacy input workbook
 
 An old `leilao_entrada.xlsx` can be migrated with **Migrar planilha antiga** or the
