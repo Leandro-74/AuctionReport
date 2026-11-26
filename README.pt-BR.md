@@ -38,7 +38,7 @@ necessário. Abra-o para revisar e exporte para PDF manualmente se precisar.
   - substituir um trecho da descrição em vários bens;
   - adicionar/remover lotes e bens;
   - editar grupos, dados bancários padrão e contas compartilhadas;
-  - editar os valores padrão do `.env` pela TUI.
+  - editar a configuração padrão do usuário pela TUI.
 - Rateia o valor de cada lote entre os bens, com no máximo **duas casas decimais**.
 - Coloca a diferença no **último bem** do lote, de forma que a soma feche exatamente.
 - Exporta o relatório final em **XLSX**.
@@ -81,42 +81,47 @@ Se o script não estiver executável, use `bash instalar.sh` ou execute antes
 Um executável independente para Windows está disponível na página de
 [Releases](https://github.com/Leandro-74/AuctionReport/releases):
 
-1. Baixe `AuctionReport-windows.zip`.
-2. Extraia os arquivos em uma pasta.
-3. Copie `.env.example` para `.env` e preencha os dados do município.
-4. Execute `AuctionReport.exe`.
+1. Baixe `AuctionReport.exe`.
+2. Execute.
 
-Não é necessário ter Python no computador de destino. O Windows pode mostrar um aviso
-do SmartScreen por ser um executável sem assinatura; escolha **Mais informações →
-Executar assim mesmo** se confiar no download.
+Na primeira execução, o programa pede os dados do município e os salva automaticamente.
+Não é necessário ter Python no computador de destino.
+
+O `AuctionReport-windows.zip` opcional contém o executável, os READMEs e um
+`config.example.json` fictício.
+
+O Windows pode mostrar um aviso do SmartScreen por ser um executável sem assinatura;
+escolha **Mais informações → Executar assim mesmo** se confiar no download.
 
 Para gerar o executável na sua própria máquina Windows, execute `build_windows.bat`.
 
 ## Configuração
 
-O repositório contém apenas valores fictícios. Para usar os dados reais do município:
+Não é necessário criar arquivo de configuração manualmente. Na primeira execução, a TUI
+pede os dados do município e os salva no perfil do usuário:
 
-1. Copie `.env.example` para `.env`.
-2. Preencha o título do município, a agência, os CNPJs e as contas correntes.
-3. Mantenha o `.env` apenas no seu computador. Ele é ignorado pelo Git.
+- Windows: `%APPDATA%\AuctionReport\config.json`
+- Linux: `~/.config/AuctionReport/config.json`
 
-As variáveis são:
+A opção **Configuração padrão** do menu principal edita o mesmo arquivo depois. O
+formato é JSON, e `config.example.json` mostra o modelo fictício.
 
-| Variável | Para que serve |
+Se existir um `.env` antigo ao lado do executável ou do projeto, ele é importado
+automaticamente na primeira vez.
+
+Os campos são:
+
+| Campo | Para que serve |
 |---|---|
-| `AUCTIONREPORT_MUNICIPIO` | Nome do município usado nos títulos dos relatórios |
-| `AUCTIONREPORT_TITULO_SAUDE` | Título do fundo de saúde |
-| `AUCTIONREPORT_SUBTITULO_PREFEITURA` | Subtítulo da Prefeitura |
-| `AUCTIONREPORT_SUBTITULO_SAUDE` | Subtítulo da Saúde |
-| `AUCTIONREPORT_AGENCIA` | Agência bancária padrão |
-| `AUCTIONREPORT_CNPJ_MUNICIPIO` | CNPJ do município |
-| `AUCTIONREPORT_CNPJ_SAUDE` | CNPJ do fundo de saúde |
-| `AUCTIONREPORT_CONTA_PREFEITURA` | Conta corrente da Prefeitura |
-| `AUCTIONREPORT_CONTA_SAUDE` | Conta corrente da Saúde |
-
-Esses valores também podem ser alterados no menu principal, opção **Configuração
-padrão**. A TUI edita o arquivo `.env`, mantém um backup local e lembra que é preciso
-reiniciar a ferramenta.
+| `municipio` | Nome do município usado nos títulos dos relatórios |
+| `titulo_saude` | Título do fundo de saúde |
+| `subtitulo_prefeitura` | Subtítulo da Prefeitura |
+| `subtitulo_saude` | Subtítulo da Saúde |
+| `agencia` | Agência bancária padrão |
+| `cnpj_municipio` | CNPJ do município |
+| `cnpj_saude` | CNPJ do fundo de saúde |
+| `conta_prefeitura` | Conta corrente da Prefeitura |
+| `conta_saude` | Conta corrente da Saúde |
 
 Esses valores são apenas padrões. Cada leilão guarda os próprios grupos e contas de
 depósito no `leilao.db`, então eles podem variar por lote, leilão ou secretaria.
@@ -149,10 +154,10 @@ A TUI abre com o menu principal:
 4. **Atualizar com PDFs** — compara PDFs novos com o leilão atual.
 5. **Exportar** — gera o relatório em XLSX.
 6. **Conferir** — mostra os totais e os avisos sem gerar arquivos.
-7. **Grupos e contas** — edita grupos, contas compartilhadas e padrões do `.env`.
+7. **Grupos e contas** — edita grupos e contas de depósito compartilhadas.
 8. **Migrar planilha antiga** — converte uma planilha de entrada antiga em banco.
 9. **Novo leilão vazio** — cria um leilão em branco com os grupos padrão.
-10. **Configuração padrão** — edita os valores do `.env`.
+10. **Configuração padrão** — edita a configuração do usuário.
 
 Depois de abrir um leilão, o painel de edição mostra:
 
@@ -460,7 +465,7 @@ Ou diretamente:
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Os testes usam os valores fictícios padrão; não é necessário ter um `.env`.
+Os testes usam os valores fictícios padrão; não é necessário ter configuração do usuário.
 
 Os testes incluem:
 
@@ -470,7 +475,7 @@ Os testes incluem:
 - movimentação de bens por faixa de código e filtro por origem;
 - persistência em SQLite, atualizações, remoções e migração de planilha antiga;
 - contas de depósito compartilhadas por vários lotes;
-- leitura e gravação do `.env`;
+- leitura e gravação da configuração JSON;
 - reconciliação de PDFs novos com um leilão existente;
 - fluxo de exportação XLSX;
 - conferência de que todas as somas fecham.
@@ -486,8 +491,8 @@ AuctionReport/
   leilao/
     money.py        dinheiro, formatação brasileira e rateio
     models.py       modelos de bem, lote, grupo e resultado
-    config.py       dados padrão do município carregados do .env
-    env_config.py   leitura e gravação do .env local
+    config.py       dados padrão do município carregados do perfil do usuário
+    config_store.py configuração JSON, caminhos e importação do .env antigo
     pdfs.py         leitura dos relatórios e do projeto de lei
     banco.py        persistência SQLite, pastas de leilão e migração
     atualizacao.py  reconciliação de PDFs novos com um leilão existente
@@ -507,7 +512,7 @@ AuctionReport/
     test_atualizacao.py
     test_exportacao.py
     test_cli.py
-    test_env_config.py
+    test_config_store.py
     test_importacao.py
     test_tui.py
     test_integracao.py
@@ -519,7 +524,7 @@ AuctionReport/
   testar.sh                    execução dos testes no Linux
   assets/logo.svg              logo do projeto
   assets/logo.ico              ícone do executável Windows
-  .env.example                 modelo de configuração com valores fictícios
+  config.example.json          modelo de configuração com valores fictícios
   README.md
   README.pt-BR.md
 ```

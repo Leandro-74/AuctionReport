@@ -36,7 +36,7 @@ to review, then export to PDF manually if needed.
   - replace a text fragment in several descriptions;
   - add or remove lots and assets;
   - edit groups, default bank data, and shared deposit accounts;
-  - edit the default `.env` values from the TUI.
+  - edit the default user configuration from the TUI.
 - Split each lot's value among its assets with at most **two decimal places**.
 - Put the remainder on the **last asset** of the lot, so the sum matches exactly.
 - Export the final report as **XLSX**.
@@ -79,42 +79,47 @@ If the script is not executable, run it with `bash instalar.sh` or use
 A standalone Windows executable is available in the
 [Releases](https://github.com/Leandro-74/AuctionReport/releases) page:
 
-1. Download `AuctionReport-windows.zip`.
-2. Extract the files to a folder.
-3. Copy `.env.example` to `.env` and fill in the municipality data.
-4. Run `AuctionReport.exe`.
+1. Download `AuctionReport.exe`.
+2. Run it.
 
-Python is not required on the target computer. Windows may show a SmartScreen warning
-for an unsigned executable; choose **More info → Run anyway** if you trust the
-download.
+On the first execution, the program asks for the municipality data and saves it
+automatically. Python is not required on the target computer.
+
+The optional `AuctionReport-windows.zip` contains the executable, the README files and
+a fictitious `config.example.json`.
+
+Windows may show a SmartScreen warning for an unsigned executable; choose
+**More info → Run anyway** if you trust the download.
 
 To build the executable on your own Windows machine, run `build_windows.bat`.
 
 ## Configuration
 
-The repository contains only fictitious placeholders. To use real municipality data:
+No manual configuration file is required. On the first execution, the TUI asks for the
+municipality data and saves it in the user profile:
 
-1. Copy `.env.example` to `.env`.
-2. Fill in the municipality title, agency, CNPJs and checking accounts.
-3. Keep `.env` only on your computer. It is ignored by Git.
+- Windows: `%APPDATA%\AuctionReport\config.json`
+- Linux: `~/.config/AuctionReport/config.json`
 
-The variables are:
+The main menu option **Configuração padrão** edits the same file later. The file is
+JSON, and `config.example.json` shows the fictitious format.
 
-| Variable | Purpose |
+If an old `.env` file exists next to the executable or project, it is imported
+automatically the first time.
+
+The fields are:
+
+| Field | Purpose |
 |---|---|
-| `AUCTIONREPORT_MUNICIPIO` | Municipality name used in report titles |
-| `AUCTIONREPORT_TITULO_SAUDE` | Health fund title |
-| `AUCTIONREPORT_SUBTITULO_PREFEITURA` | Prefeitura subtitle |
-| `AUCTIONREPORT_SUBTITULO_SAUDE` | Saúde subtitle |
-| `AUCTIONREPORT_AGENCIA` | Default bank branch |
-| `AUCTIONREPORT_CNPJ_MUNICIPIO` | Municipality CNPJ |
-| `AUCTIONREPORT_CNPJ_SAUDE` | Health fund CNPJ |
-| `AUCTIONREPORT_CONTA_PREFEITURA` | Prefeitura checking account |
-| `AUCTIONREPORT_CONTA_SAUDE` | Saúde checking account |
-
-You can also change these values in the main menu option **Configuração padrão**. The
-TUI edits the `.env` file, keeps a local backup, and shows a reminder to restart the
-tool.
+| `municipio` | Municipality name used in report titles |
+| `titulo_saude` | Health fund title |
+| `subtitulo_prefeitura` | Prefeitura subtitle |
+| `subtitulo_saude` | Saúde subtitle |
+| `agencia` | Default bank branch |
+| `cnpj_municipio` | Municipality CNPJ |
+| `cnpj_saude` | Health fund CNPJ |
+| `conta_prefeitura` | Prefeitura checking account |
+| `conta_saude` | Saúde checking account |
 
 These values are only defaults. Each auction stores its own groups and deposit
 accounts in `leilao.db`, so they can differ per lot, auction or department.
@@ -149,10 +154,10 @@ The TUI opens the main menu:
 4. **Atualizar com PDFs** — compares new PDFs with the current auction.
 5. **Exportar** — generates the XLSX report.
 6. **Conferir** — shows totals and warnings without generating files.
-7. **Grupos e contas** — edits groups, shared deposit accounts and `.env` defaults.
+7. **Grupos e contas** — edits groups and shared deposit accounts.
 8. **Migrar planilha antiga** — converts an old input workbook into a database.
 9. **Novo leilão vazio** — creates an empty auction with the default groups.
-10. **Configuração padrão** — edits the `.env` defaults.
+10. **Configuração padrão** — edits the user configuration.
 
 After opening an auction, the editing panel shows:
 
@@ -462,7 +467,7 @@ Or directly:
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The tests use the fictitious defaults; no `.env` file is required.
+The tests use the fictitious defaults; no user configuration file is required.
 
 The tests include:
 
@@ -472,7 +477,7 @@ The tests include:
 - moving assets by code range and filtering by origin;
 - SQLite persistence, updates, removals and legacy workbook migration;
 - shared deposit accounts used by multiple lots;
-- `.env` reading and writing;
+- JSON configuration reading and writing;
 - reconciliation of new PDFs with an existing auction;
 - XLSX export workflow;
 - checking that every sum matches.
@@ -488,8 +493,8 @@ AuctionReport/
   leilao/
     money.py        money, Brazilian formatting and value splitting
     models.py       asset, lot, group and result models
-    config.py       municipality defaults loaded from .env
-    env_config.py   reading and writing the local .env
+    config.py       municipality defaults loaded from the user profile
+    config_store.py JSON configuration, paths and legacy .env import
     pdfs.py         reading reports and the bill of law
     banco.py        SQLite storage, auction folders and migration
     atualizacao.py  reconciliation of new PDFs with an existing auction
@@ -509,7 +514,7 @@ AuctionReport/
     test_atualizacao.py
     test_exportacao.py
     test_cli.py
-    test_env_config.py
+    test_config_store.py
     test_importacao.py
     test_tui.py
     test_integracao.py
@@ -521,7 +526,7 @@ AuctionReport/
   testar.sh                    test runner on Linux
   assets/logo.svg              project logo
   assets/logo.ico              Windows executable icon
-  .env.example                 fictitious configuration template
+  config.example.json          fictitious configuration template
   README.md
   README.pt-BR.md
 ```
