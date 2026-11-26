@@ -18,7 +18,7 @@ from .money import parse_money
 BANCO_NOME = "leilao.db"
 PASTA_DOCUMENTOS = "documentos"
 PASTA_EXPORTACOES = "exportacoes"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS meta (
     nome TEXT NOT NULL DEFAULT '',
     ano INTEGER,
     criado_em TEXT NOT NULL,
-    atualizado_em TEXT NOT NULL
+    atualizado_em TEXT NOT NULL,
+    venda_realizada INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS grupos (
@@ -148,13 +149,27 @@ def abrir_banco(path: str | Path, *, criar: bool = False):
 
 
 def _migrar_schema(conn: sqlite3.Connection) -> None:
-    colunas = {
+    colunas_lotes = {
         row["name"] for row in conn.execute("PRAGMA table_info(lotes)")
     }
-    if "conta_id" not in colunas:
+    if "conta_id" not in colunas_lotes:
         conn.execute(
             "ALTER TABLE lotes ADD COLUMN conta_id INTEGER "
             "REFERENCES contas(id) ON DELETE RESTRICT"
+        )
+    colunas_meta = {
+        row["name"] for row in conn.execute("PRAGMA table_info(meta)")
+    }
+    if "venda_realizada" not in colunas_meta:
+        conn.execute(
+            "ALTER TABLE meta ADD COLUMN venda_realizada INTEGER "
+            "NOT NULL DEFAULT 0"
+        )
+        conn.execute(
+            "UPDATE meta SET venda_realizada = CASE WHEN EXISTS ("
+            "SELECT 1 FROM lotes WHERE valor_venda IS NOT NULL "
+            "AND valor_venda <> ''"
+            ") THEN 1 ELSE 0 END WHERE id = 1"
         )
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
@@ -511,7 +526,9 @@ def salvar_leilao(path: str | Path, data: ReportData) -> ReportData:
                 conn, "grupos", [grupo.id for grupo in data.grupos if grupo.id is not None]
             )
             conn.execute(
-                "UPDATE meta SET atualizado_em = ? WHERE id = 1", (_agora(),)
+                "UPDATE meta SET atualizado_em = ?, venda_realizada = ? "
+                "WHERE id = 1",
+                (_agora(), 1 if data.venda_realizada else 0),
             )
     return carregar_leilao(path)
 
@@ -640,10 +657,14 @@ def carregar_leilao(path: str | Path) -> ReportData:
     if not path.exists():
         raise ValueError(f"Banco não encontrado: {path}")
     with abrir_banco(path) as conn:
+        meta = conn.execute(
+            "SELECT venda_realizada FROM meta WHERE id = 1"
+        ).fetchone()
         data = ReportData(
             grupos=_carregar_grupos(conn),
             contas=_carregar_contas(conn),
             lotes=_carregar_lotes(conn),
+            venda_realizada=bool(meta["venda_realizada"]) if meta else True,
         )
         data.bens = _carregar_bens(conn, data.lotes)
     build_results(data)

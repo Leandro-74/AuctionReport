@@ -46,6 +46,14 @@ class ExportacaoTests(unittest.TestCase):
         self.assertIn("Relatório Bens da Prefeitura", wb.sheetnames)
         wb.close()
 
+    def test_nao_exporta_venda_nao_realizada(self):
+        data = _data()
+        data.venda_realizada = False
+        with self.assertRaises(ValueError) as ctx:
+            exportar(data, self.destino, nome_base="sem-venda")
+        self.assertIn("ainda não foi realizada", str(ctx.exception))
+        self.assertFalse((self.destino / "sem-venda.xlsx").exists())
+
     def test_nao_exporta_leilao_vazio(self):
         data = ReportData(
             grupos=[copy.deepcopy(DEFAULT_GROUPS["Prefeitura"])],

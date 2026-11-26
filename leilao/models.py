@@ -146,6 +146,7 @@ class ReportData:
     resultados: list[LotResult] = field(default_factory=list)
     issues: list[Issue] = field(default_factory=list)
     contas: list[Conta] = field(default_factory=list)
+    venda_realizada: bool = True
 
     @property
     def erros(self) -> list[Issue]:

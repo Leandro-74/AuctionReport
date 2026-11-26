@@ -141,7 +141,13 @@ def _cmd_novo(args: argparse.Namespace) -> int:
     try:
         grupos, lotes, bens, issues = importar_pdfs(relatorios, args.pl)
         data = criar_leilao(
-            pasta, ReportData(grupos=grupos, lotes=lotes, bens=bens)
+            pasta,
+            ReportData(
+                grupos=grupos,
+                lotes=lotes,
+                bens=bens,
+                venda_realizada=False,
+            ),
         )
     except (ValueError, OSError) as exc:
         print(f"ERRO: {exc}")
@@ -160,6 +166,10 @@ def _cmd_novo(args: argparse.Namespace) -> int:
     _print_resumo(data)
     print(f"\nLeilão criado em: {pasta.resolve()}")
     print(f"Banco: {db_path.resolve()}")
+    print(
+        "A venda ainda não foi registrada. Use a TUI para informar os "
+        "valores de venda."
+    )
     return 0
 
 
@@ -268,6 +278,12 @@ def _cmd_exportar(args: argparse.Namespace) -> int:
         return 1
 
     _print_issues(data.issues)
+    if not data.venda_realizada:
+        print(
+            "\nA venda do leilão ainda não foi realizada. "
+            "Registre os valores de venda pela TUI antes de exportar."
+        )
+        return 1
     if data.erros:
         print("\nCorrija os erros antes de exportar.")
         return 1
@@ -334,6 +350,9 @@ def _cmd_conferir(args: argparse.Namespace) -> int:
     if data.erros:
         print("\nExistem erros que impedem a geração do relatório.")
         return 1
+    if not data.venda_realizada:
+        print("\nVenda ainda não realizada. Nenhum valor de venda foi registrado.")
+        return 0
     print("\nTudo certo: todos os lotes fecham exatamente.")
     return 0
 

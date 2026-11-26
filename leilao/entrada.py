@@ -950,22 +950,24 @@ def build_results(data: ReportData) -> None:
                     aba="Lotes",
                 )
             )
-        if not lote.valor_informado:
-            data.issues.append(
-                Issue(
-                    "erro",
-                    f"Lote {lote.numero} está sem valor de venda.",
-                    linha=lote.row,
-                    aba="Lotes",
-                )
-            )
-            continue
         bens_lote = sorted(por_lote[lote.numero], key=lambda b: b.row)
         if not bens_lote:
             data.issues.append(
                 Issue(
                     "erro",
                     f"Lote {lote.numero} não tem nenhum bem associado.",
+                    linha=lote.row,
+                    aba="Lotes",
+                )
+            )
+            continue
+        if not data.venda_realizada:
+            continue
+        if not lote.valor_informado:
+            data.issues.append(
+                Issue(
+                    "erro",
+                    f"Lote {lote.numero} está sem valor de venda.",
                     linha=lote.row,
                     aba="Lotes",
                 )
@@ -1081,6 +1083,7 @@ def ler_entrada(path: str | Path) -> ReportData:
         data.grupos = grupos
         data.lotes = lotes
         data.bens = bens
+        data.venda_realizada = any(lote.valor_informado for lote in lotes)
         data.issues.extend(issues_grupos + issues_lotes + issues_bens)
         build_results(data)
         return data

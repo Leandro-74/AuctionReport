@@ -174,6 +174,7 @@ class BancoTests(unittest.TestCase):
         conn = sqlite3.connect(self.db)
         conn.execute("ALTER TABLE lotes DROP COLUMN conta_id")
         conn.execute("DROP TABLE contas")
+        conn.execute("ALTER TABLE meta DROP COLUMN venda_realizada")
         conn.execute("PRAGMA user_version = 1")
         conn.commit()
         conn.close()
@@ -181,7 +182,18 @@ class BancoTests(unittest.TestCase):
         recarregado = carregar_leilao(self.db)
         self.assertEqual(recarregado.contas, [])
         self.assertTrue(all(lote.conta_id is None for lote in recarregado.lotes))
+        self.assertTrue(recarregado.venda_realizada)
         self.assertFalse(recarregado.erros, [str(e) for e in recarregado.erros])
+
+    def test_venda_nao_realizada_nao_gera_erro(self):
+        data = carregar_leilao(self.db)
+        data.venda_realizada = False
+        for lote in data.lotes:
+            editar_lote(data, lote.numero, valor="")
+        data = salvar_leilao(self.db, data)
+        self.assertFalse(data.venda_realizada)
+        self.assertEqual(data.resultados, [])
+        self.assertFalse(data.erros, [str(e) for e in data.erros])
 
     def test_lote_pode_ficar_sem_valor_e_receber_depois(self):
         data = carregar_leilao(self.db)

@@ -833,6 +833,11 @@ def gerar_relatorio(
     A aba Resumo é opcional; por padrão o arquivo contém apenas as abas do
     modelo (principais, auxiliares e contas).
     """
+    if not data.venda_realizada:
+        raise ValueError(
+            "A venda do leilão ainda não foi realizada. "
+            "Use 'Registrar venda' antes de exportar."
+        )
     if data.erros:
         linhas = "\n".join(f"- {issue}" for issue in data.erros)
         raise ValueError(f"Corrija os erros antes de gerar o relatório:\n{linhas}")

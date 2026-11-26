@@ -211,9 +211,15 @@ def _status(estado: Estado) -> None:
     if estado.data:
         bens = len([b for b in estado.data.bens if b.lote])
         linhas.append(
-            f"[bold]Conteúdo:[/] {bens} bens em {len(estado.data.resultados)} lote(s), "
+            f"[bold]Conteúdo:[/] {bens} bens em {len(estado.data.lotes)} lote(s), "
             f"{len(estado.data.grupos)} grupo(s)"
         )
+        venda = (
+            "[green]realizada[/]"
+            if estado.data.venda_realizada
+            else "[yellow]não realizada[/]"
+        )
+        linhas.append(f"[bold]Venda:[/] {venda}")
     if estado.ultima_exportacao:
         linhas.append(f"[bold]Última exportação:[/] {estado.ultima_exportacao}")
     console.print(Panel("\n".join(linhas), border_style="dim", padding=(0, 1)))
@@ -331,7 +337,23 @@ def _tabela_lotes(data: ReportData) -> Table:
     tabela.add_column("Status", no_wrap=True)
     for lote in sorted(data.lotes, key=lambda l: l.numero_int):
         resultado = resultados.get(lote.numero)
-        if not lote.valor_informado:
+        if not data.venda_realizada:
+            quantidade = sum(1 for bem in data.bens if bem.lote == lote.numero)
+            lance = (
+                format_brl(lote.valor_avaliado)
+                if lote.valor_avaliado is not None
+                else "-"
+            )
+            tabela.add_row(
+                lote.numero,
+                lote.grupo,
+                lote.secao,
+                str(quantidade),
+                lance,
+                "-",
+                "[yellow]NÃO VENDIDO[/]",
+            )
+        elif not lote.valor_informado:
             quantidade = sum(1 for bem in data.bens if bem.lote == lote.numero)
             tabela.add_row(
                 lote.numero,
@@ -405,6 +427,11 @@ def _dashboard(estado: Estado) -> None:
     if data is None:
         return
     console.print(f"[bold]Leilão:[/] {estado.leilao}")
+    if not data.venda_realizada:
+        console.print(
+            "[yellow]Venda ainda não realizada. "
+            "Use 'Registrar venda' quando o leilão acontecer.[/]"
+        )
     console.print(_tabela_grupos(data))
     console.print(_tabela_lotes(data))
     _avisos(data.issues)
@@ -421,21 +448,28 @@ def editar_dashboard(estado: Estado) -> None:
             "[dim]As edições são salvas no banco do leilão. "
             "Use 'Exportar' no menu principal para gerar o XLSX.[/]"
         )
-        opcao = _menu(
-            "Editar relatório",
-            [
-                ("1", "Ver/listar bens", "Filtrar por lote, código, texto, origem ou categoria"),
-                ("2", "Mover bens", "Mover bens por código/faixa para outro lote"),
-                ("3", "Editar lote", "Valor da venda, grupo, seção"),
-                ("4", "Editar bem", "Descrição, contas, código, lote"),
-                ("5", "Substituir texto", "Trocar um trecho da descrição em vários bens"),
-                ("6", "Adicionar/remover", "Novo lote, novo bem, remover"),
-                ("7", "Grupos e contas", "Dados bancários e abas"),
-                ("8", "Abrir pasta do leilão", "Abrir a pasta no gerenciador de arquivos"),
-                ("9", "Salvar agora", "As edições já são salvas automaticamente"),
-                ("0", "Voltar", "Voltar ao menu principal"),
-            ],
-        )
+        opcoes = [
+            ("1", "Ver/listar bens", "Filtrar por lote, código, texto, origem ou categoria"),
+            ("2", "Mover bens", "Mover bens por código/faixa para outro lote"),
+            ("3", "Editar lote", "Grupo, seção e conta"),
+            ("4", "Editar bem", "Descrição, contas, código, lote"),
+            ("5", "Substituir texto", "Trocar um trecho da descrição em vários bens"),
+            ("6", "Adicionar/remover", "Novo lote, novo bem, remover"),
+            ("7", "Grupos e contas", "Dados bancários e abas"),
+            ("8", "Abrir pasta do leilão", "Abrir a pasta no gerenciador de arquivos"),
+            ("9", "Salvar agora", "As edições já são salvas automaticamente"),
+            ("0", "Voltar", "Voltar ao menu principal"),
+        ]
+        if not estado.data.venda_realizada:
+            opcoes.insert(
+                -1,
+                (
+                    "10",
+                    "Registrar venda",
+                    "Informar os valores de venda do leilão",
+                ),
+            )
+        opcao = _menu("Editar relatório", opcoes)
         try:
             if opcao == "1":
                 _ver_bens(estado)
@@ -457,6 +491,8 @@ def editar_dashboard(estado: Estado) -> None:
             elif opcao == "9":
                 _salvar(estado)
                 _pause()
+            elif opcao == "10":
+                _registrar_venda(estado)
             elif opcao == "0":
                 return
             else:
@@ -572,15 +608,25 @@ def _editar_lote(estado: Estado) -> None:
             border_style="blue",
         )
     )
-    valor_atual = (
-        format_brl(lote.valor, symbol=False) if lote.valor_informado else ""
-    )
-    novo_valor = Prompt.ask(
-        "Valor da venda (Enter mantém; '-' = sem valor)",
-        default=valor_atual,
-    )
-    if novo_valor.strip() == "-":
-        novo_valor = ""
+    valor_args: dict[str, object] = {}
+    if data.venda_realizada:
+        valor_atual = (
+            format_brl(lote.valor, symbol=False)
+            if lote.valor_informado
+            else ""
+        )
+        novo_valor = Prompt.ask(
+            "Valor da venda (Enter mantém; '-' = sem valor)",
+            default=valor_atual,
+        )
+        if novo_valor.strip() == "-":
+            novo_valor = ""
+        valor_args["valor"] = novo_valor
+    else:
+        console.print(
+            "[dim]A venda ainda não foi registrada. O valor mostrado é o "
+            "lance inicial; use 'Registrar venda' para informar os valores.[/]"
+        )
     novo_grupo = Prompt.ask("Grupo (Enter mantém)", default=lote.grupo)
     nova_secao = Prompt.ask("Seção (Enter mantém)", default=lote.secao)
     nova_obs = Prompt.ask("Observação (Enter mantém)", default=lote.observacao)
@@ -600,11 +646,11 @@ def _editar_lote(estado: Estado) -> None:
     editar_lote(
         data,
         lote.numero,
-        valor=novo_valor,
         grupo=novo_grupo,
         secao=nova_secao,
         observacao=nova_obs,
         conta_id=conta_id,
+        **valor_args,
     )
     _salvar(estado)
     _sucesso(f"Lote {lote.numero} atualizado.")
@@ -1187,17 +1233,10 @@ def _abrir_edicao(estado: Estado) -> None:
         _pause()
 
 
-def _informar_valores_venda(lotes: list[Lot]) -> None:
-    if not lotes:
-        return
-    if not _confirm(
-        "O leilão já foi realizado? Informar os valores de venda agora?",
-        default=False,
-    ):
-        return
+def _preencher_valores_venda(lotes: list[Lot]) -> None:
     console.print(
-        "[dim]Digite o valor de venda de cada lote. "
-        "Enter em branco deixa o lote sem valor.[/]"
+        "[dim]Informe o valor de venda de cada lote. "
+        "O valor é obrigatório para registrar a venda.[/]"
     )
     for lote in sorted(lotes, key=lambda l: l.numero_int):
         avaliado = (
@@ -1211,15 +1250,63 @@ def _informar_valores_venda(lotes: list[Lot]) -> None:
                 default="",
             ).strip()
             if not texto:
-                lote.valor = Decimal("0.00")
-                lote.valor_informado = False
-                break
+                _erro("Informe o valor de venda ou cancele com Ctrl+C.")
+                continue
             try:
                 lote.valor = parse_money(texto)
                 lote.valor_informado = True
                 break
             except ValueError:
                 _erro("Valor inválido. Digite novamente.")
+
+
+def _informar_valores_venda(lotes: list[Lot]) -> bool:
+    if not lotes:
+        console.print(
+            "[dim]Nenhum lote importado; a venda poderá ser registrada "
+            "depois pela edição.[/]"
+        )
+        return False
+    if not _confirm("O leilão já foi realizado?", default=False):
+        return False
+    _preencher_valores_venda(lotes)
+    return True
+
+
+def _registrar_venda(estado: Estado) -> None:
+    data = estado.data
+    assert data is not None
+    if data.venda_realizada:
+        console.print("[dim]A venda deste leilão já foi registrada.[/]")
+        _pause()
+        return
+    if not data.lotes:
+        _erro("Cadastre pelo menos um lote antes de registrar a venda.")
+        _pause()
+        return
+    if not _confirm(
+        "Marcar o leilão como realizado e informar os valores de venda?",
+        default=True,
+    ):
+        console.print("[dim]Cancelado.[/]")
+        _pause()
+        return
+    try:
+        _preencher_valores_venda(data.lotes)
+    except KeyboardInterrupt:
+        console.print("\n[dim]Cancelado.[/]")
+        _pause()
+        return
+    data.venda_realizada = True
+    if not _salvar(estado):
+        try:
+            estado.data = carregar_leilao(estado.banco)
+        except Exception:
+            pass
+        _pause()
+        return
+    _sucesso("Venda do leilão registrada.")
+    _pause()
 
 
 def novo_leilao(estado: Estado) -> None:
@@ -1270,13 +1357,18 @@ def novo_leilao(estado: Estado) -> None:
             _pause()
             return
 
-    _informar_valores_venda(lotes)
+    venda_realizada = _informar_valores_venda(lotes)
 
     with console.status("[cyan]Criando o leilão...[/]"):
         try:
             data = criar_leilao(
                 pasta,
-                ReportData(grupos=grupos, lotes=lotes, bens=bens),
+                ReportData(
+                    grupos=grupos,
+                    lotes=lotes,
+                    bens=bens,
+                    venda_realizada=venda_realizada,
+                ),
             )
         except Exception as exc:
             _erro(str(exc))
@@ -1331,7 +1423,9 @@ def novo_leilao_vazio(estado: Estado) -> None:
         for nome in ("Prefeitura", "Saúde")
     ]
     try:
-        data = criar_leilao(pasta, ReportData(grupos=grupos))
+        data = criar_leilao(
+            pasta, ReportData(grupos=grupos, venda_realizada=False)
+        )
     except Exception as exc:
         _erro(str(exc))
         _pause()
@@ -1535,6 +1629,13 @@ def exportar_leilao(estado: Estado) -> None:
         return
     assert estado.data is not None
     _dashboard(estado)
+    if not estado.data.venda_realizada:
+        _erro(
+            "A venda do leilão ainda não foi realizada. "
+            "Use 'Registrar venda' na edição antes de exportar."
+        )
+        _pause()
+        return
     if estado.data.erros:
         console.print(
             Panel(
@@ -1611,7 +1712,12 @@ def conferir(estado: Estado) -> None:
         return
     assert estado.data is not None
     _dashboard(estado)
-    if estado.data.erros:
+    if not estado.data.venda_realizada:
+        console.print(
+            "[yellow]Venda ainda não realizada. "
+            "Use 'Registrar venda' na edição quando o leilão acontecer.[/]"
+        )
+    elif estado.data.erros:
         console.print("[red]Existem erros que impedem a exportação.[/]")
     else:
         console.print("[green]Tudo certo: todos os lotes fecham exatamente.[/]")
