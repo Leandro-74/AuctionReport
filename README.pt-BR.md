@@ -334,8 +334,9 @@ Aparência reproduzida do modelo:
 - abas de conta com 4 colunas e os blocos de agência, conta corrente, CNPJ e total;
 - uma aba por conta usada; lotes que compartilham a mesma conta dividem a aba e o
   total;
-- fontes Calibri/Arial, fundo cinza `D9D9D9`, bordas finas, formato `R$ #,##0.00`,
-  larguras de coluna e margens iguais às do modelo.
+- fontes Calibri/Arial, cabeçalhos cinza `D9D9D9`, linhas alternadas em branco e
+  `F2F2F2`, bordas finas `999999`, formato `R$ #,##0.00`, larguras de coluna e
+  margens iguais às do modelo.
 
 As abas auxiliares são criadas automaticamente conforme os dados:
 

@@ -336,8 +336,9 @@ The template layout is reproduced with:
   total;
 - one account sheet per account used; lots that share an account share the sheet and
   the total;
-- Calibri/Arial fonts, gray `D9D9D9` background, thin borders, `R$ #,##0.00` format,
-  column widths and margins equal to the template.
+- Calibri/Arial fonts, gray `D9D9D9` headers, alternating white and `F2F2F2` rows,
+  thin `999999` borders, `R$ #,##0.00` format, column widths and margins equal to the
+  template.
 
 Auxiliary sheets are created automatically from the data:
 
