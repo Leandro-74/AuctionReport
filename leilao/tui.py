@@ -42,7 +42,7 @@ from .edicao import (
     remover_lote,
     substituir_descricao,
 )
-from . import config, config_store
+from . import config, config_store, dialogos
 from .atualizacao import planejar_atualizacao
 from .config import AGENCIA, MUNICIPIO
 from .banco import (
@@ -118,28 +118,80 @@ def _limpar_caminho(texto: str) -> str:
     return texto
 
 
-def _pedir_caminho(titulo: str, dica: str) -> str:
-    return _limpar_caminho(
-        Prompt.ask(f"{titulo} ({dica})", default="", show_default=False)
+def _pedir_caminho(
+    titulo: str,
+    dica: str,
+    *,
+    opcional: bool = False,
+    extensoes: tuple[str, ...] = (),
+    pasta: bool = False,
+) -> str:
+    seletor = dialogos.disponivel()
+    partes = [dica]
+    if seletor:
+        partes.append("Enter abre o seletor do sistema")
+    if opcional:
+        partes.append(
+            "'-' para pular" if seletor else "Enter em branco para pular"
+        )
+    texto = Prompt.ask(
+        f"{titulo} ({'; '.join(partes)})",
+        default="",
+        show_default=False,
     )
+    texto = _limpar_caminho(texto)
+    if texto == "-":
+        return ""
+    if texto:
+        return texto
+    if not seletor:
+        return ""
+    try:
+        if pasta:
+            return dialogos.selecionar_pasta(titulo)
+        return dialogos.selecionar_arquivo(titulo, extensoes)
+    except dialogos.DialogoIndisponivel as exc:
+        console.print(f"[yellow]Seletor do sistema indisponível: {exc}[/]")
+        return _limpar_caminho(
+            Prompt.ask(
+                f"{titulo} (digite o caminho)",
+                default="",
+                show_default=False,
+            )
+        )
 
 
-def selecionar_pdf(titulo: str) -> str:
+def selecionar_pdf(titulo: str, *, opcional: bool = True) -> str:
     return _pedir_caminho(
-        titulo, "arraste o PDF ou digite o caminho; Enter para pular"
+        titulo,
+        "arraste o PDF ou digite o caminho",
+        opcional=opcional,
+        extensoes=("pdf",),
     )
 
 
 def selecionar_xlsx(titulo: str) -> str:
-    return _pedir_caminho(titulo, "arraste o .xlsx ou digite o caminho")
+    return _pedir_caminho(
+        titulo,
+        "arraste o .xlsx ou digite o caminho",
+        extensoes=("xlsx",),
+    )
 
 
 def selecionar_banco(titulo: str) -> str:
-    return _pedir_caminho(titulo, "arraste o leilao.db ou digite o caminho")
+    return _pedir_caminho(
+        titulo,
+        "arraste o leilao.db ou digite o caminho",
+        extensoes=("db",),
+    )
 
 
 def selecionar_pasta(titulo: str) -> str:
-    return _pedir_caminho(titulo, "arraste a pasta ou digite o caminho")
+    return _pedir_caminho(
+        titulo,
+        "arraste a pasta ou digite o caminho",
+        pasta=True,
+    )
 
 
 def _pause() -> None:
@@ -1331,8 +1383,8 @@ def novo_leilao(estado: Estado) -> None:
     _banner()
     console.print(
         Panel(
-            "Informe o caminho dos PDFs do sistema. Arraste o arquivo para o\n"
-            "terminal ou digite o caminho. Enter em branco = pular.",
+            "Informe os PDFs do sistema. Arraste o arquivo para o terminal,\n"
+            "digite o caminho ou use o seletor do sistema. '-' para pular.",
             title="Novo leilão",
             border_style="blue",
         )

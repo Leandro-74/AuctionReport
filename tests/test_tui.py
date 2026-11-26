@@ -2,10 +2,11 @@ import copy
 import os
 import unittest
 from decimal import Decimal
+from unittest import mock
 
 from leilao.entrada import DEFAULT_GROUPS, build_results
 from leilao.models import Asset, Group, Lot, ReportData
-from leilao.tui import _limpar_caminho, _resumo_grupo
+from leilao.tui import _limpar_caminho, _pedir_caminho, _resumo_grupo
 
 
 def _data_nao_vendida():
@@ -41,6 +42,53 @@ def _data_nao_vendida():
     )
     build_results(data)
     return data
+
+
+class PedirCaminhoTests(unittest.TestCase):
+    def test_enter_abre_o_seletor(self):
+        with (
+            mock.patch(
+                "leilao.tui.dialogos.disponivel", return_value=True
+            ),
+            mock.patch("leilao.tui.Prompt.ask", return_value=""),
+            mock.patch(
+                "leilao.tui.dialogos.selecionar_arquivo",
+                return_value="/tmp/arquivo.pdf",
+            ) as selecionar,
+        ):
+            caminho = _pedir_caminho(
+                "Abrir", "teste", opcional=True, extensoes=("pdf",)
+            )
+        self.assertEqual(caminho, "/tmp/arquivo.pdf")
+        selecionar.assert_called_once_with("Abrir", ("pdf",))
+
+    def test_hifen_pula_sem_abrir_seletor(self):
+        with (
+            mock.patch(
+                "leilao.tui.dialogos.disponivel", return_value=True
+            ),
+            mock.patch("leilao.tui.Prompt.ask", return_value="-"),
+            mock.patch(
+                "leilao.tui.dialogos.selecionar_arquivo"
+            ) as selecionar,
+        ):
+            caminho = _pedir_caminho("Abrir", "teste", opcional=True)
+        self.assertEqual(caminho, "")
+        selecionar.assert_not_called()
+
+    def test_sem_seletor_enter_cancela(self):
+        with (
+            mock.patch(
+                "leilao.tui.dialogos.disponivel", return_value=False
+            ),
+            mock.patch("leilao.tui.Prompt.ask", return_value=""),
+            mock.patch(
+                "leilao.tui.dialogos.selecionar_arquivo"
+            ) as selecionar,
+        ):
+            caminho = _pedir_caminho("Abrir", "teste")
+        self.assertEqual(caminho, "")
+        selecionar.assert_not_called()
 
 
 class ResumoGrupoTests(unittest.TestCase):
