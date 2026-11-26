@@ -76,6 +76,22 @@ cd AuctionReport
 Se o script não estiver executável, use `bash instalar.sh` ou execute antes
 `chmod +x instalar.sh iniciar.sh testar.sh`.
 
+### Executável para Windows
+
+Um executável independente para Windows está disponível na página de
+[Releases](https://github.com/Leandro-74/AuctionReport/releases):
+
+1. Baixe `AuctionReport-windows.zip`.
+2. Extraia os arquivos em uma pasta.
+3. Copie `.env.example` para `.env` e preencha os dados do município.
+4. Execute `AuctionReport.exe`.
+
+Não é necessário ter Python no computador de destino. O Windows pode mostrar um aviso
+do SmartScreen por ser um executável sem assinatura; escolha **Mais informações →
+Executar assim mesmo** se confiar no download.
+
+Para gerar o executável na sua própria máquina Windows, execute `build_windows.bat`.
+
 ## Configuração
 
 O repositório contém apenas valores fictícios. Para usar os dados reais do município:
@@ -495,10 +511,14 @@ AuctionReport/
     test_importacao.py
     test_tui.py
     test_integracao.py
+  main.py                      ponto de entrada do executável
+  build_windows.bat            geração local do executável Windows
+  .github/workflows/release.yml  geração da release Windows
   instalar.bat / iniciar.bat   instalação e execução no Windows
   instalar.sh / iniciar.sh     instalação e execução no Linux
   testar.sh                    execução dos testes no Linux
   assets/logo.svg              logo do projeto
+  assets/logo.ico              ícone do executável Windows
   .env.example                 modelo de configuração com valores fictícios
   README.md
   README.pt-BR.md
