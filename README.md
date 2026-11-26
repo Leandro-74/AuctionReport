@@ -94,8 +94,9 @@ The variables are:
 | `AUCTIONREPORT_CONTA_PREFEITURA` | Prefeitura checking account |
 | `AUCTIONREPORT_CONTA_SAUDE` | Saúde checking account |
 
-You can also change these values in **Grupos e contas → Configuração padrão**. The TUI
-edits the `.env` file, keeps a local backup, and shows a reminder to restart the tool.
+You can also change these values in the main menu option **Configuração padrão**. The
+TUI edits the `.env` file, keeps a local backup, and shows a reminder to restart the
+tool.
 
 These values are only defaults. Each auction stores its own groups and deposit
 accounts in `leilao.db`, so they can differ per lot, auction or department.
@@ -133,6 +134,7 @@ The TUI opens the main menu:
 7. **Grupos e contas** — edits groups, shared deposit accounts and `.env` defaults.
 8. **Migrar planilha antiga** — converts an old input workbook into a database.
 9. **Novo leilão vazio** — creates an empty auction with the default groups.
+10. **Configuração padrão** — edits the `.env` defaults.
 
 After opening an auction, the editing panel shows:
 
@@ -237,7 +239,8 @@ moving or removing assets.
 
 ### Edit lot
 
-Changes the sale value, the group (sheet) and the section (title) of the lot.
+Changes the sale value, the group (sheet), the section (title) and the deposit account
+of the lot.
 
 ### Edit asset
 

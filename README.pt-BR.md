@@ -96,9 +96,9 @@ As variáveis são:
 | `AUCTIONREPORT_CONTA_PREFEITURA` | Conta corrente da Prefeitura |
 | `AUCTIONREPORT_CONTA_SAUDE` | Conta corrente da Saúde |
 
-Esses valores também podem ser alterados em **Grupos e contas → Configuração padrão**.
-A TUI edita o arquivo `.env`, mantém um backup local e lembra que é preciso reiniciar a
-ferramenta.
+Esses valores também podem ser alterados no menu principal, opção **Configuração
+padrão**. A TUI edita o arquivo `.env`, mantém um backup local e lembra que é preciso
+reiniciar a ferramenta.
 
 Esses valores são apenas padrões. Cada leilão guarda os próprios grupos e contas de
 depósito no `leilao.db`, então eles podem variar por lote, leilão ou secretaria.
@@ -134,6 +134,7 @@ A TUI abre com o menu principal:
 7. **Grupos e contas** — edita grupos, contas compartilhadas e padrões do `.env`.
 8. **Migrar planilha antiga** — converte uma planilha de entrada antiga em banco.
 9. **Novo leilão vazio** — cria um leilão em branco com os grupos padrão.
+10. **Configuração padrão** — edita os valores do `.env`.
 
 Depois de abrir um leilão, o painel de edição mostra:
 
@@ -238,7 +239,8 @@ mover ou remover bens.
 
 ### Editar lote
 
-Permite alterar o valor da venda, o grupo (aba) e a seção (título) do lote.
+Permite alterar o valor da venda, o grupo (aba), a seção (título) e a conta de depósito
+do lote.
 
 ### Editar bem
 
