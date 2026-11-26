@@ -22,17 +22,22 @@ from . import __version__
 from .edicao import (
     EdicaoError,
     adicionar_bem,
+    adicionar_conta,
     adicionar_grupo,
     adicionar_lote,
+    conta_do_lote,
     editar_bem,
+    editar_conta,
     editar_grupo,
     editar_lote,
     encontrar_bem,
+    encontrar_conta,
     encontrar_grupo,
     encontrar_lote,
     filtrar_bens,
     mover_bens,
     remover_bens,
+    remover_conta,
     remover_grupo,
     remover_lote,
     substituir_descricao,
@@ -49,8 +54,9 @@ from .banco import (
     salvar_leilao,
 )
 from .entrada import DEFAULT_GROUPS, importar_pdfs
+from .env_config import CAMPOS, salvar as salvar_env, valores_atuais
 from .exportacao import exportar
-from .models import Asset, Issue, ReportData, norm
+from .models import Asset, Issue, Lot, ReportData, norm
 from .money import format_brl
 
 console = Console()
@@ -285,6 +291,34 @@ def _tabela_grupos(data: ReportData) -> Table:
     return tabela
 
 
+def _tabela_contas(data: ReportData) -> Table:
+    tabela = Table(box=box.SIMPLE_HEAVY, header_style="bold cyan")
+    tabela.add_column("Conta", no_wrap=True)
+    tabela.add_column("Título", overflow="ellipsis", max_width=30)
+    tabela.add_column("Agência", no_wrap=True)
+    tabela.add_column("Conta corrente", no_wrap=True)
+    tabela.add_column("CNPJ", no_wrap=True)
+    tabela.add_column("Lotes", justify="right", no_wrap=True)
+    for conta in data.contas:
+        usados = sum(1 for lote in data.lotes if lote.conta_id == conta.id)
+        tabela.add_row(
+            conta.nome,
+            conta.titulo or "-",
+            conta.agencia or "-",
+            conta.conta_corrente or "-",
+            conta.cnpj or "-",
+            str(usados),
+        )
+    return tabela
+
+
+def _nome_conta(data: ReportData, lote: Lot) -> str:
+    if lote.conta_id is None:
+        return "padrão do grupo"
+    conta = conta_do_lote(data, lote)
+    return conta.nome if conta is not None else "(conta removida)"
+
+
 def _tabela_lotes(data: ReportData) -> Table:
     resultados = {r.lote.numero: r for r in data.resultados}
     tabela = Table(box=box.SIMPLE_HEAVY, header_style="bold cyan")
@@ -515,10 +549,12 @@ def _editar_lote(estado: Estado) -> None:
     console.print(_tabela_lotes(data))
     numero = Prompt.ask("Número do lote", default="")
     lote = encontrar_lote(data, numero)
+    conta_atual = _nome_conta(data, lote)
     console.print(
         Panel(
             f"[bold]Lote {lote.numero}[/]\n"
             f"Grupo: {lote.grupo}\nSeção: {lote.secao}\n"
+            f"Conta: {conta_atual}\n"
             f"Valor: {format_brl(lote.valor)}\n"
             f"Observação: {lote.observacao or '-'}",
             border_style="blue",
@@ -529,6 +565,19 @@ def _editar_lote(estado: Estado) -> None:
     novo_grupo = Prompt.ask("Grupo (Enter mantém)", default=lote.grupo)
     nova_secao = Prompt.ask("Seção (Enter mantém)", default=lote.secao)
     nova_obs = Prompt.ask("Observação (Enter mantém)", default=lote.observacao)
+    if data.contas:
+        console.print(_tabela_contas(data))
+    conta_nome = Prompt.ask(
+        "Conta (Enter mantém; 'padrao' = conta do grupo)",
+        default=conta_atual,
+    ).strip()
+    if conta_nome.lower() in ("padrao", "padrão") or conta_nome == "(conta removida)":
+        conta_id = None
+    elif conta_nome == conta_atual:
+        conta_id = lote.conta_id
+    else:
+        conta = encontrar_conta(data, conta_nome)
+        conta_id = conta.id
     editar_lote(
         data,
         lote.numero,
@@ -536,6 +585,7 @@ def _editar_lote(estado: Estado) -> None:
         grupo=novo_grupo,
         secao=nova_secao,
         observacao=nova_obs,
+        conta_id=conta_id,
     )
     _salvar(estado)
     _sucesso(f"Lote {lote.numero} atualizado.")
@@ -662,6 +712,16 @@ def _adicionar_remover(estado: Estado) -> None:
         grupo = Prompt.ask("Grupo", default=data.grupos[0].nome if data.grupos else "Prefeitura")
         secao = Prompt.ask("Seção", default="Bens em Geral")
         obs = Prompt.ask("Observação (Enter = vazio)", default="")
+        if data.contas:
+            console.print(_tabela_contas(data))
+        conta_nome = Prompt.ask(
+            "Conta (Enter = padrão do grupo)", default=""
+        ).strip()
+        conta_id = (
+            encontrar_conta(data, conta_nome).id
+            if conta_nome
+            else None
+        )
         adicionar_lote(
             data,
             numero=numero,
@@ -669,6 +729,7 @@ def _adicionar_remover(estado: Estado) -> None:
             grupo=grupo,
             secao=secao,
             observacao=obs,
+            conta_id=conta_id,
         )
         _salvar(estado)
         _sucesso(f"Lote {numero} criado.")
@@ -748,6 +809,179 @@ def _adicionar_remover(estado: Estado) -> None:
         _pause()
 
 
+def _contas(estado: Estado) -> None:
+    while True:
+        data = estado.data
+        assert data is not None
+        console.clear()
+        _banner()
+        console.print("[bold]Contas de depósito[/]")
+        if data.contas:
+            console.print(_tabela_contas(data))
+        else:
+            console.print("[dim]Nenhuma conta específica cadastrada.[/]")
+        opcao = _menu(
+            "Contas de depósito",
+            [
+                ("1", "Adicionar conta", "Nova conta compartilhável entre lotes"),
+                ("2", "Editar conta", "Título, agência, conta, CNPJ"),
+                ("3", "Remover conta", "Só se não houver lotes usando"),
+                ("0", "Voltar", ""),
+            ],
+        )
+        try:
+            if opcao == "1":
+                nome = Prompt.ask("Nome da conta")
+                titulo = Prompt.ask(
+                    "Título da aba (Enter = automático)", default=""
+                )
+                descricao = Prompt.ask(
+                    "Descrição",
+                    default=f"Conta de depósito - {nome}",
+                )
+                agencia = Prompt.ask("Agência", default=AGENCIA)
+                conta_corrente = Prompt.ask("Conta corrente", default="")
+                cnpj = Prompt.ask("CNPJ", default="")
+                adicionar_conta(
+                    data,
+                    nome=nome,
+                    titulo=titulo,
+                    descricao=descricao,
+                    agencia=agencia,
+                    conta_corrente=conta_corrente,
+                    cnpj=cnpj,
+                )
+                _salvar(estado)
+                _sucesso(f"Conta '{nome}' criada.")
+                _pause()
+            elif opcao == "2":
+                if not data.contas:
+                    console.print("[yellow]Nenhuma conta cadastrada.[/]")
+                    _pause()
+                    continue
+                nome = Prompt.ask(
+                    "Nome da conta", default=data.contas[0].nome
+                )
+                conta = encontrar_conta(data, nome)
+                console.print(
+                    Panel(
+                        f"[bold]{conta.nome}[/]\n"
+                        f"Título: {conta.titulo or '-'}\n"
+                        f"Descrição: {conta.descricao or '-'}\n"
+                        f"Agência: {conta.agencia or '-'}\n"
+                        f"Conta corrente: {conta.conta_corrente or '-'}\n"
+                        f"CNPJ: {conta.cnpj or '-'}",
+                        border_style="blue",
+                    )
+                )
+                novo_nome = Prompt.ask(
+                    "Nome (Enter mantém)", default=conta.nome
+                )
+                titulo = Prompt.ask(
+                    "Título (Enter mantém)", default=conta.titulo
+                )
+                descricao = Prompt.ask(
+                    "Descrição (Enter mantém)", default=conta.descricao
+                )
+                agencia = Prompt.ask(
+                    "Agência (Enter mantém)", default=conta.agencia
+                )
+                conta_corrente = Prompt.ask(
+                    "Conta corrente (Enter mantém)",
+                    default=conta.conta_corrente,
+                )
+                cnpj = Prompt.ask(
+                    "CNPJ (Enter mantém)", default=conta.cnpj
+                )
+                editar_conta(
+                    data,
+                    conta.nome,
+                    novo_nome=novo_nome,
+                    titulo=titulo,
+                    descricao=descricao,
+                    agencia=agencia,
+                    conta_corrente=conta_corrente,
+                    cnpj=cnpj,
+                )
+                _salvar(estado)
+                _sucesso("Conta atualizada.")
+                _pause()
+            elif opcao == "3":
+                if not data.contas:
+                    console.print("[yellow]Nenhuma conta cadastrada.[/]")
+                    _pause()
+                    continue
+                nome = Prompt.ask(
+                    "Nome da conta a remover",
+                    default=data.contas[0].nome,
+                )
+                remover_conta(data, nome)
+                _salvar(estado)
+                _sucesso(f"Conta '{nome}' removida.")
+                _pause()
+            elif opcao == "0":
+                return
+        except EdicaoError as exc:
+            _erro(str(exc))
+            _pause()
+
+
+def _config_env() -> None:
+    valores = valores_atuais()
+    while True:
+        console.clear()
+        _banner()
+        console.print(
+            Panel(
+                "Valores padrão para novos grupos e novos leilões.\n"
+                "Leilões existentes não são alterados por esta tela.\n"
+                "Após salvar, feche e abra a ferramenta para aplicar.",
+                title="Configuração padrão (.env)",
+                border_style="blue",
+            )
+        )
+        tabela = Table(box=box.SIMPLE_HEAVY, header_style="bold cyan")
+        tabela.add_column("Nº", justify="right", width=3)
+        tabela.add_column("Campo")
+        tabela.add_column("Valor", overflow="ellipsis", max_width=48)
+        for numero, (chave, rotulo, _) in enumerate(CAMPOS, start=1):
+            tabela.add_row(str(numero), rotulo, valores[chave])
+        console.print(tabela)
+        escolha = Prompt.ask(
+            "Número do campo para editar (0 = salvar e sair)",
+            default="0",
+        ).strip()
+        if escolha == "0":
+            if _confirm("Salvar as alterações no .env?", default=True):
+                try:
+                    salvar_env(valores)
+                except Exception as exc:
+                    _erro(f"Não foi possível salvar o .env: {exc}")
+                    _pause()
+                    return
+                _sucesso(
+                    "Configuração salva. Feche e abra a ferramenta para aplicar."
+                )
+            else:
+                console.print("[dim]Nada alterado.[/]")
+            _pause()
+            return
+        try:
+            indice = int(escolha) - 1
+            chave, rotulo, _ = CAMPOS[indice]
+        except (ValueError, IndexError):
+            _erro("Campo inválido.")
+            _pause()
+            continue
+        if indice < 0:
+            _erro("Campo inválido.")
+            _pause()
+            continue
+        valores[chave] = Prompt.ask(
+            f"{rotulo} (Enter mantém)", default=valores[chave]
+        ).strip()
+
+
 def _grupos(estado: Estado) -> None:
     data = estado.data
     assert data is not None
@@ -755,9 +989,11 @@ def _grupos(estado: Estado) -> None:
     opcao = _menu(
         "Grupos e contas",
         [
-            ("1", "Editar grupo", "Título, conta, agência, CNPJ"),
+            ("1", "Editar grupo", "Título, conta padrão, agência, CNPJ"),
             ("2", "Adicionar grupo", "Nova aba de secretaria"),
             ("3", "Remover grupo", "Só se não houver lotes"),
+            ("4", "Contas de depósito", "Contas compartilhadas entre lotes"),
+            ("5", "Configuração padrão", "Editar os valores padrão do .env"),
             ("0", "Voltar", ""),
         ],
     )
@@ -825,6 +1061,10 @@ def _grupos(estado: Estado) -> None:
         _salvar(estado)
         _sucesso(f"Grupo {nome} removido.")
         _pause()
+    elif opcao == "4":
+        _contas(estado)
+    elif opcao == "5":
+        _config_env()
 
 
 # ---------------------------------------------------------------------------
