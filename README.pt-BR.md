@@ -23,7 +23,8 @@ necessário. Abra-o para revisar e exporte para PDF manualmente se precisar.
 
 ## Funcionalidades
 
-- Lê os PDFs do tipo **Termo de Responsabilidade** da Prefeitura e da Saúde.
+- Lê os PDFs atuais de **Consulta de Bem** da Prefeitura e da Saúde, incluindo as
+  contas de débito e crédito.
 - Lê o **Projeto de Lei** e identifica os lotes, os patrimônios citados e os valores
   avaliados.
 - Cria uma **pasta e um banco SQLite** para cada leilão.
@@ -39,6 +40,8 @@ necessário. Abra-o para revisar e exporte para PDF manualmente se precisar.
   - adicionar/remover lotes e bens;
   - editar grupos, dados bancários padrão e contas compartilhadas;
   - editar a configuração padrão do usuário pela TUI.
+- Permite informar o valor de venda de cada lote na criação ou depois; o valor do
+  projeto de lei fica como lance inicial de referência.
 - Rateia o valor de cada lote entre os bens, com no máximo **duas casas decimais**.
 - Coloca a diferença no **último bem** do lote, de forma que a soma feche exatamente.
 - Exporta o relatório final em **XLSX**.
@@ -227,6 +230,7 @@ A atualização é conservadora:
 - lotes, contas e observações existentes são preservados;
 - tipo, descrição e valor contábil são atualizados a partir do PDF;
 - bens novos usam o projeto de lei para sugerir o lote;
+- lotes novos começam sem valor de venda e podem ser completados em **Editar lote**;
 - códigos ambíguos não são associados automaticamente;
 - bens que sumiram dos PDFs são mantidos e aparecem como aviso.
 
@@ -281,6 +285,19 @@ Permite criar lotes e bens, remover lotes vazios e excluir bens por código, fai
 texto, lote, categoria ou origem.
 
 As alterações são salvas automaticamente no banco SQLite.
+
+## Valor de venda e lance inicial
+
+O valor do projeto de lei é o **lance inicial**, não o valor final de venda.
+
+- Ao criar um leilão, a TUI pergunta se o leilão já foi realizado e permite informar o
+  valor de venda de cada lote.
+- Também é possível criar o leilão sem os valores de venda e preenchê-los depois em
+  **Editar leilão → Editar lote**.
+- Um lote sem valor de venda aparece como `SEM VALOR`.
+- A exportação do relatório exige o valor de venda de todos os lotes.
+
+O lance inicial fica no campo `Valor avaliado (PL)` como referência.
 
 ## Como o valor é dividido
 
@@ -416,10 +433,10 @@ A planilha antiga tem estas abas:
 | Coluna | Para que serve |
 |---|---|
 | Lote | Número do lote, com dois dígitos (`01`, `02`...). |
-| Valor da venda | Valor arrematado do lote. É esse valor que será rateado. |
+| Valor da venda | Valor arrematado do lote. É esse valor que será rateado. Pode ficar vazio até o leilão acontecer. |
 | Grupo | Nome do grupo da aba Grupos. |
 | Seção | Título da seção. |
-| Valor avaliado (PL) | Referência do projeto de lei. |
+| Valor avaliado (PL) | Lance inicial de referência do projeto de lei. |
 | Descrição do PL | Texto do projeto de lei, só para consulta. |
 
 ### Aba Grupos
@@ -428,10 +445,11 @@ Nome da aba, título, subtítulo, conta de depósito, agência, conta corrente e
 
 ## Observações e limites
 
-- Os PDFs precisam ser os relatórios em tabela gerados pelo sistema (BIRT), com as
-  colunas `Tipo do Bem`, `Código`, `Descrição` e `Valor Contábil`.
-- As contas contábeis não vêm nos PDFs. O programa deixa as colunas vazias; preencha
-  pela TUI se o relatório precisar delas.
+- Os PDFs precisam ser os relatórios atuais de **Consulta de Bem** gerados pelo sistema
+  (BIRT), com as colunas `Tipo`, `Código`, `Complemento`, `Conta Débito` e
+  `Conta Crédito`.
+- Os novos relatórios incluem as contas de débito e crédito. Eles não incluem o valor
+  contábil, então `Valor Contábil` fica vazio até ser preenchido pela TUI.
 - A sugestão automática de lotes é um ponto de partida. Confira sempre os bens,
   principalmente os bens da Saúde e os lotes genéricos.
 - Se um lote do projeto de lei não tiver nenhum bem nos relatórios, o programa cria
@@ -481,8 +499,9 @@ Os testes incluem:
 - conferência de que todas as somas fecham.
 
 > Os PDFs e as planilhas do município **não são versionados** no repositório.
-> Para rodar os testes de integração, coloque os arquivos de exemplo na raiz do
-> projeto. Sem eles, esses testes são ignorados automaticamente.
+> Para rodar os testes de integração, coloque os novos relatórios em `novo_modelo/` e
+> o projeto de lei na raiz do projeto. Sem eles, esses testes são ignorados
+> automaticamente.
 
 ## Estrutura do projeto
 
