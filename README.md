@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo.svg" alt="AuctionReport logo" width="120"></p>
+<p align="center"><img src="assets/logo.svg?v=2" alt="AuctionReport logo" width="120"></p>
 
 <h1 align="center">AuctionReport</h1>
 
