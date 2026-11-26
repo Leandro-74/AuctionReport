@@ -7,8 +7,10 @@ from pathlib import Path
 
 from .config import AGENCIA, MUNICIPIO
 from .entrada import ler_entrada, normalize_lot, write_entrada
-from .models import Asset, Group, Lot, ReportData, norm
+from .models import Asset, Conta, Group, Lot, ReportData, norm
 from .money import parse_money
+
+_NAO_ALTERAR = object()
 
 
 class EdicaoError(ValueError):
@@ -128,6 +130,7 @@ def editar_lote(
     grupo: str | None = None,
     secao: str | None = None,
     observacao: str | None = None,
+    conta_id: int | None | object = _NAO_ALTERAR,
 ) -> Lot:
     lote = encontrar_lote(data, numero)
     if valor is not None:
@@ -144,6 +147,12 @@ def editar_lote(
         lote.secao = secao.strip()
     if observacao is not None:
         lote.observacao = observacao.strip()
+    if conta_id is not _NAO_ALTERAR:
+        if conta_id is not None and not any(
+            conta.id == conta_id for conta in data.contas
+        ):
+            raise EdicaoError("Conta de depósito não encontrada.")
+        lote.conta_id = conta_id
     return lote
 
 
@@ -265,6 +274,7 @@ def adicionar_lote(
     grupo: str,
     secao: str,
     observacao: str = "",
+    conta_id: int | None = None,
 ) -> Lot:
     numero = normalize_lot(numero)
     if not numero:
@@ -277,6 +287,10 @@ def adicionar_lote(
         valor_dec = parse_money(valor)
     except ValueError as exc:
         raise EdicaoError(f"Valor inválido: {valor!r}.") from exc
+    if conta_id is not None and not any(
+        conta.id == conta_id for conta in data.contas
+    ):
+        raise EdicaoError("Conta de depósito não encontrada.")
     lote = Lot(
         numero=numero,
         valor=valor_dec,
@@ -284,6 +298,7 @@ def adicionar_lote(
         secao=secao.strip() or "Bens em Geral",
         observacao=observacao.strip(),
         row=max((l.row for l in data.lotes), default=0) + 1,
+        conta_id=conta_id,
     )
     data.lotes.append(lote)
     return lote
@@ -365,6 +380,103 @@ def remover_lote(data: ReportData, numero: str) -> Lot:
         )
     data.lotes.remove(lote)
     return lote
+
+
+# ---------------------------------------------------------------------------
+# Contas de depósito
+# ---------------------------------------------------------------------------
+
+
+def encontrar_conta(data: ReportData, nome: str) -> Conta:
+    alvo = norm(nome).strip()
+    for conta in data.contas:
+        if norm(conta.nome) == alvo:
+            return conta
+    raise EdicaoError(f"Conta '{nome}' não encontrada.")
+
+
+def conta_do_lote(data: ReportData, lote: Lot) -> Conta | None:
+    if lote.conta_id is None:
+        return None
+    for conta in data.contas:
+        if conta.id == lote.conta_id:
+            return conta
+    return None
+
+
+def adicionar_conta(
+    data: ReportData,
+    *,
+    nome: str,
+    titulo: str = "",
+    descricao: str = "",
+    agencia: str = "",
+    conta_corrente: str = "",
+    cnpj: str = "",
+) -> Conta:
+    nome = nome.strip()
+    if not nome:
+        raise EdicaoError("Informe o nome da conta.")
+    if any(norm(conta.nome) == norm(nome) for conta in data.contas):
+        raise EdicaoError(f"Já existe a conta '{nome}'.")
+    conta = Conta(
+        nome=nome,
+        titulo=titulo.strip(),
+        descricao=descricao.strip(),
+        agencia=agencia.strip(),
+        conta_corrente=conta_corrente.strip(),
+        cnpj=cnpj.strip(),
+        row=max((conta.row for conta in data.contas), default=0) + 1,
+    )
+    data.contas.append(conta)
+    return conta
+
+
+def editar_conta(
+    data: ReportData,
+    nome: str,
+    *,
+    novo_nome: str | None = None,
+    titulo: str | None = None,
+    descricao: str | None = None,
+    agencia: str | None = None,
+    conta_corrente: str | None = None,
+    cnpj: str | None = None,
+) -> Conta:
+    conta = encontrar_conta(data, nome)
+    if novo_nome is not None and novo_nome.strip() and norm(novo_nome) != norm(conta.nome):
+        if any(
+            norm(outra.nome) == norm(novo_nome) and outra is not conta
+            for outra in data.contas
+        ):
+            raise EdicaoError(f"Já existe a conta '{novo_nome}'.")
+        conta.nome = novo_nome.strip()
+    for atributo, valor in (
+        ("titulo", titulo),
+        ("descricao", descricao),
+        ("agencia", agencia),
+        ("conta_corrente", conta_corrente),
+        ("cnpj", cnpj),
+    ):
+        if valor is not None:
+            setattr(conta, atributo, valor.strip())
+    return conta
+
+
+def remover_conta(data: ReportData, nome: str) -> Conta:
+    conta = encontrar_conta(data, nome)
+    associados = (
+        [lote for lote in data.lotes if lote.conta_id == conta.id]
+        if conta.id is not None
+        else []
+    )
+    if associados:
+        raise EdicaoError(
+            f"A conta '{conta.nome}' ainda é usada por {len(associados)} lote(s). "
+            "Mude a conta desses lotes antes de removê-la."
+        )
+    data.contas.remove(conta)
+    return conta
 
 
 # ---------------------------------------------------------------------------

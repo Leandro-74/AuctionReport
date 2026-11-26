@@ -19,7 +19,7 @@ from leilao.edicao import (
     substituir_descricao,
 )
 from leilao.entrada import DEFAULT_GROUPS, ler_entrada, write_entrada
-from leilao.models import Asset, Lot
+from leilao.models import Asset, Conta, Lot
 
 
 class SelecaoTests(unittest.TestCase):
@@ -112,6 +112,16 @@ class EdicaoTests(unittest.TestCase):
         remover_lote(self.data, "03")
         self.data = salvar_entrada(self.entrada, self.data)
         self.assertNotIn("03", [l.numero for l in self.data.lotes])
+
+    def test_lote_usa_conta_especifica(self):
+        conta = Conta(id=1, nome="Conta Compartilhada")
+        self.data.contas.append(conta)
+        lote = editar_lote(self.data, "01", conta_id=1)
+        self.assertEqual(lote.conta_id, 1)
+        editar_lote(self.data, "01", conta_id=None)
+        self.assertIsNone(lote.conta_id)
+        with self.assertRaises(EdicaoError):
+            editar_lote(self.data, "01", conta_id=999)
 
     def test_filtro_por_texto_e_lote(self):
         self.assertEqual(len(filtrar_bens(self.data, texto="mesa", lote="01")), 2)

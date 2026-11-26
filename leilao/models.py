@@ -50,6 +50,7 @@ class Lot:
     observacao: str = ""
     row: int = 0
     id: int | None = None
+    conta_id: int | None = None
 
     @property
     def numero_int(self) -> int:
@@ -57,6 +58,20 @@ class Lot:
             return int(self.numero)
         except ValueError:
             return 10**9
+
+
+@dataclass
+class Conta:
+    """Uma conta de depósito que pode ser usada por vários lotes."""
+
+    nome: str
+    titulo: str = ""
+    descricao: str = ""
+    agencia: str = ""
+    conta_corrente: str = ""
+    cnpj: str = ""
+    row: int = 0
+    id: int | None = None
 
 
 @dataclass
@@ -129,6 +144,7 @@ class ReportData:
     bens: list[Asset] = field(default_factory=list)
     resultados: list[LotResult] = field(default_factory=list)
     issues: list[Issue] = field(default_factory=list)
+    contas: list[Conta] = field(default_factory=list)
 
     @property
     def erros(self) -> list[Issue]:

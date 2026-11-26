@@ -21,7 +21,7 @@ from .config import (
     TITULO_CONTA_SAUDE,
     TITULO_SAUDE,
 )
-from .models import Asset, Group, Lot, LotResult, ReportData, norm
+from .models import Asset, Conta, Group, Lot, LotResult, ReportData, norm
 from .money import format_brl
 
 # ---------------------------------------------------------------------------
@@ -525,22 +525,53 @@ def _write_view_sheet(wb, spec: ViewSpec, usados: set[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _write_account_sheet(wb, chave: str, grupos: list[tuple[Group, Decimal]], usados: set[str]) -> None:
-    cnpj = grupos[0][0].cnpj.strip() if grupos else ""
+@dataclass
+class ContaView:
+    nome: str
+    titulo: str
+    descricao: str
+    agencia: str
+    conta_corrente: str
+    cnpj: str
+    total: Decimal
+
+
+def _view_grupo(grupo: Group, total: Decimal) -> ContaView:
+    cnpj = grupo.cnpj.strip()
     if cnpj == CNPJ_MUNICIPIO:
-        aba = "Conta Município"
+        nome = "Conta Município"
         titulo = TITULO_CONTA_MUNICIPIO
     elif cnpj == CNPJ_SAUDE:
-        aba = "Conta Fundo Municipal de Saude"
+        nome = "Conta Fundo Municipal de Saude"
         titulo = TITULO_CONTA_SAUDE
-    elif len(grupos) == 1:
-        aba = f"Conta {grupos[0][0].nome}"
-        titulo = f"{grupos[0][0].nome.upper()}: CONTAS PARA DEPÓSITO"
     else:
-        aba = f"Conta {cnpj}" if cnpj else f"Conta {chave}"
-        titulo = f"CONTAS PARA DEPÓSITO - {cnpj or chave}"
+        nome = f"Conta {grupo.nome}"
+        titulo = f"{grupo.titulo}: CONTAS PARA DEPÓSITO"
+    return ContaView(
+        nome=nome,
+        titulo=titulo,
+        descricao=grupo.conta,
+        agencia=grupo.agencia,
+        conta_corrente=grupo.conta_corrente,
+        cnpj=grupo.cnpj,
+        total=total,
+    )
 
-    ws = wb.create_sheet(_sheet_name(aba, usados))
+
+def _view_conta(conta: Conta, total: Decimal) -> ContaView:
+    return ContaView(
+        nome=conta.nome,
+        titulo=conta.titulo or f"{conta.nome}: CONTAS PARA DEPÓSITO",
+        descricao=conta.descricao or f"Conta de depósito - {conta.nome}",
+        agencia=conta.agencia,
+        conta_corrente=conta.conta_corrente,
+        cnpj=conta.cnpj,
+        total=total,
+    )
+
+
+def _write_account_sheet(wb, view: ContaView, usados: set[str]) -> None:
+    ws = wb.create_sheet(_sheet_name(view.nome, usados))
     for col, largura in enumerate(LARGURAS_CONTA, start=1):
         ws.column_dimensions[get_column_letter(col)].width = largura
     ws.column_dimensions["E"].width = LARGURA_G
@@ -548,7 +579,7 @@ def _write_account_sheet(wb, chave: str, grupos: list[tuple[Group, Decimal]], us
     _merge(
         ws,
         1,
-        titulo,
+        view.titulo,
         FONTE_TITULO,
         fill=CINZA,
         wrap=False,
@@ -557,13 +588,29 @@ def _write_account_sheet(wb, chave: str, grupos: list[tuple[Group, Decimal]], us
     )
 
     row = 3
-    for grupo, total in grupos:
+    _merge(
+        ws,
+        row,
+        view.descricao,
+        FONTE_CONTA_NEGRITO,
+        fill=CINZA,
+        horizontal=None,
+        vertical=None,
+        wrap=False,
+        height=15,
+        end_col=4,
+    )
+    row += 1
+    for texto in (
+        f"Agência: {view.agencia}",
+        f"Conta Corrente: {view.conta_corrente}",
+        f"CNPJ: {view.cnpj}",
+    ):
         _merge(
             ws,
             row,
-            grupo.conta,
-            FONTE_CONTA_NEGRITO,
-            fill=CINZA,
+            texto,
+            FONTE_CONTA,
             horizontal=None,
             vertical=None,
             wrap=False,
@@ -571,53 +618,48 @@ def _write_account_sheet(wb, chave: str, grupos: list[tuple[Group, Decimal]], us
             end_col=4,
         )
         row += 1
-        for texto in (
-            f"Agência: {grupo.agencia}",
-            f"Conta Corrente: {grupo.conta_corrente}",
-            f"CNPJ: {grupo.cnpj}",
-        ):
-            _merge(
-                ws,
-                row,
-                texto,
-                FONTE_CONTA,
-                horizontal=None,
-                vertical=None,
-                wrap=False,
-                height=15,
-                end_col=4,
-            )
-            row += 1
-        _merge(
-            ws,
-            row,
-            f"Valor total dos lotes: {format_brl(total)}",
-            FONTE_CONTA,
-            horizontal="right",
-            vertical=None,
-            wrap=False,
-            height=15,
-            end_col=4,
-        )
-        row += 2
+    _merge(
+        ws,
+        row,
+        f"Valor total dos lotes: {format_brl(view.total)}",
+        FONTE_CONTA,
+        horizontal="right",
+        vertical=None,
+        wrap=False,
+        height=15,
+        end_col=4,
+    )
 
     _setup_page(ws)
 
 
 def _write_account_sheets(wb, data: ReportData, usados: set[str]) -> None:
-    entidades: "OrderedDict[str, list[tuple[Group, Decimal]]]" = OrderedDict()
-    for grupo in sorted(data.grupos, key=lambda g: (g.ordem, g.nome)):
-        resultados = [
-            r for r in data.resultados if norm(r.lote.grupo) == norm(grupo.nome)
-        ]
-        if not resultados:
-            continue
-        total = sum((r.lote.valor for r in resultados), Decimal("0.00"))
-        chave = grupo.cnpj.strip() or f"grupo:{grupo.nome}"
-        entidades.setdefault(chave, []).append((grupo, total))
+    grupos = {norm(grupo.nome): grupo for grupo in data.grupos}
+    contas = {conta.id: conta for conta in data.contas}
+    views: "OrderedDict[tuple[str, object], ContaView]" = OrderedDict()
 
-    for chave, grupos in entidades.items():
-        _write_account_sheet(wb, chave, grupos, usados)
+    for resultado in data.resultados:
+        lote = resultado.lote
+        if lote.conta_id is not None:
+            conta = contas.get(lote.conta_id)
+            if conta is None:
+                raise ValueError(
+                    f"O lote {lote.numero} aponta para uma conta inexistente."
+                )
+            chave = ("conta", conta.id)
+            if chave not in views:
+                views[chave] = _view_conta(conta, Decimal("0.00"))
+        else:
+            grupo = grupos.get(norm(lote.grupo))
+            if grupo is None:
+                continue
+            chave = ("grupo", grupo.id if grupo.id is not None else grupo.nome)
+            if chave not in views:
+                views[chave] = _view_grupo(grupo, Decimal("0.00"))
+        views[chave].total += lote.valor
+
+    for view in views.values():
+        _write_account_sheet(wb, view, usados)
 
 
 # ---------------------------------------------------------------------------

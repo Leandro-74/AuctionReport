@@ -16,9 +16,17 @@ from leilao.banco import (
     migrar_planilha,
     salvar_leilao,
 )
-from leilao.edicao import editar_grupo, mover_bens, remover_bens, remover_lote
+from leilao.edicao import (
+    adicionar_conta,
+    editar_grupo,
+    encontrar_conta,
+    mover_bens,
+    remover_bens,
+    remover_conta,
+    remover_lote,
+)
 from leilao.entrada import DEFAULT_GROUPS, write_entrada
-from leilao.models import Asset, Lot, ReportData
+from leilao.models import Asset, Conta, Lot, ReportData
 
 
 def _grupos():
@@ -120,6 +128,59 @@ class BancoTests(unittest.TestCase):
         recarregado = carregar_leilao(self.db)
         self.assertIn("Município", [grupo.nome for grupo in recarregado.grupos])
         self.assertEqual(len(recarregado.resultados), 3)
+
+    def test_contas_compartilhadas_por_lotes(self):
+        data = carregar_leilao(self.db)
+        adicionar_conta(
+            data,
+            nome="Conta Compartilhada",
+            titulo="CONTAS COMPARTILHADAS",
+            descricao="Conta usada por mais de um lote",
+            agencia="0000-0 (Banco de Exemplo)",
+            conta_corrente="12345-6",
+            cnpj="00.000.000/0001-99",
+        )
+        data = salvar_leilao(self.db, data)
+        conta = encontrar_conta(data, "Conta Compartilhada")
+        self.assertIsNotNone(conta.id)
+
+        for lote in data.lotes[:2]:
+            lote.conta_id = conta.id
+        data = salvar_leilao(self.db, data)
+
+        recarregado = carregar_leilao(self.db)
+        self.assertEqual(len(recarregado.contas), 1)
+        self.assertEqual(recarregado.contas[0].nome, "Conta Compartilhada")
+        self.assertEqual(recarregado.contas[0].conta_corrente, "12345-6")
+        self.assertEqual(
+            {lote.conta_id for lote in recarregado.lotes[:2]},
+            {conta.id},
+        )
+
+        with self.assertRaises(ValueError):
+            remover_conta(recarregado, "Conta Compartilhada")
+
+        for lote in recarregado.lotes:
+            lote.conta_id = None
+        recarregado = salvar_leilao(self.db, recarregado)
+        remover_conta(recarregado, "Conta Compartilhada")
+        recarregado = salvar_leilao(self.db, recarregado)
+        self.assertEqual(recarregado.contas, [])
+
+    def test_migra_banco_da_versao_1(self):
+        import sqlite3
+
+        conn = sqlite3.connect(self.db)
+        conn.execute("ALTER TABLE lotes DROP COLUMN conta_id")
+        conn.execute("DROP TABLE contas")
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+        conn.close()
+
+        recarregado = carregar_leilao(self.db)
+        self.assertEqual(recarregado.contas, [])
+        self.assertTrue(all(lote.conta_id is None for lote in recarregado.lotes))
+        self.assertFalse(recarregado.erros, [str(e) for e in recarregado.erros])
 
     def test_remove_bem_e_lote(self):
         carregado = carregar_leilao(self.db)

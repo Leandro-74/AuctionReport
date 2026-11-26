@@ -954,6 +954,18 @@ def build_results(data: ReportData) -> None:
                     aba="Lotes",
                 )
             )
+        if lote.conta_id is not None and not any(
+            conta.id == lote.conta_id for conta in data.contas
+        ):
+            data.issues.append(
+                Issue(
+                    "erro",
+                    f"Lote {lote.numero} aponta para uma conta de depósito "
+                    "que não existe.",
+                    linha=lote.row,
+                    aba="Lotes",
+                )
+            )
         bens_lote = sorted(por_lote[lote.numero], key=lambda b: b.row)
         if not bens_lote:
             data.issues.append(

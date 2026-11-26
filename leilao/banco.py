@@ -11,13 +11,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .entrada import build_results, normalize_lot, normalize_source
-from .models import Asset, Group, Lot, ReportData, norm
+from .models import Asset, Conta, Group, Lot, ReportData, norm
 from .money import parse_money
 
 BANCO_NOME = "leilao.db"
 PASTA_DOCUMENTOS = "documentos"
 PASTA_EXPORTACOES = "exportacoes"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -41,10 +41,22 @@ CREATE TABLE IF NOT EXISTS grupos (
     cnpj TEXT NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS contas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL UNIQUE,
+    titulo TEXT NOT NULL DEFAULT '',
+    descricao TEXT NOT NULL DEFAULT '',
+    agencia TEXT NOT NULL DEFAULT '',
+    conta_corrente TEXT NOT NULL DEFAULT '',
+    cnpj TEXT NOT NULL DEFAULT '',
+    ordem INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS lotes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numero TEXT NOT NULL UNIQUE,
     grupo_id INTEGER NOT NULL REFERENCES grupos(id) ON DELETE RESTRICT,
+    conta_id INTEGER REFERENCES contas(id) ON DELETE RESTRICT,
     valor_venda TEXT NOT NULL,
     secao TEXT NOT NULL DEFAULT 'Bens em Geral',
     valor_avaliado TEXT,
@@ -123,17 +135,28 @@ def abrir_banco(path: str | Path, *, criar: bool = False):
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     try:
-        if criar:
-            conn.executescript(_SCHEMA)
-            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-            conn.commit()
         try:
+            conn.executescript(_SCHEMA)
+            _migrar_schema(conn)
             _verificar_schema(conn)
         except sqlite3.DatabaseError as exc:
             raise ValueError("O arquivo não é um banco SQLite válido.") from exc
         yield conn
     finally:
         conn.close()
+
+
+def _migrar_schema(conn: sqlite3.Connection) -> None:
+    colunas = {
+        row["name"] for row in conn.execute("PRAGMA table_info(lotes)")
+    }
+    if "conta_id" not in colunas:
+        conn.execute(
+            "ALTER TABLE lotes ADD COLUMN conta_id INTEGER "
+            "REFERENCES contas(id) ON DELETE RESTRICT"
+        )
+    conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    conn.commit()
 
 
 def _verificar_schema(conn: sqlite3.Connection) -> None:
@@ -143,7 +166,12 @@ def _verificar_schema(conn: sqlite3.Connection) -> None:
             "SELECT name FROM sqlite_master WHERE type = 'table'"
         )
     }
-    if "bens" not in tabelas or "lotes" not in tabelas or "grupos" not in tabelas:
+    if (
+        "bens" not in tabelas
+        or "lotes" not in tabelas
+        or "grupos" not in tabelas
+        or "contas" not in tabelas
+    ):
         raise ValueError(
             "O arquivo não é um banco de leilão válido. "
             "Use a pasta criada pela ferramenta."
@@ -198,6 +226,19 @@ def _validar(data: ReportData) -> None:
             raise ValueError(f"Grupo duplicado: {nome}.")
         grupos[chave] = nome
 
+    contas: set[int] = set()
+    nomes_contas: set[str] = set()
+    for conta in data.contas:
+        nome = _texto(conta.nome)
+        if not nome:
+            raise ValueError("Há uma conta sem nome.")
+        chave = norm(nome)
+        if chave in nomes_contas:
+            raise ValueError(f"Conta duplicada: {nome}.")
+        nomes_contas.add(chave)
+        if conta.id is not None:
+            contas.add(conta.id)
+
     lotes: dict[str, str] = {}
     for lote in data.lotes:
         numero = normalize_lot(lote.numero)
@@ -210,6 +251,10 @@ def _validar(data: ReportData) -> None:
             raise ValueError(
                 f"O lote {numero} aponta para o grupo '{lote.grupo}', "
                 "que não existe."
+            )
+        if lote.conta_id is not None and lote.conta_id not in contas:
+            raise ValueError(
+                f"O lote {numero} aponta para uma conta que não existe."
             )
 
     codigos: dict[tuple[str, str], str] = {}
@@ -260,6 +305,39 @@ def _apagar_ausentes(
         return
     marcadores = ",".join("?" for _ in ids)
     conn.execute(f"DELETE FROM {tabela} WHERE id NOT IN ({marcadores})", ids)
+
+
+def _salvar_contas(conn: sqlite3.Connection, data: ReportData) -> None:
+    for ordem, conta in enumerate(data.contas):
+        valores = (
+            _texto(conta.nome),
+            _texto(conta.titulo),
+            _texto(conta.descricao),
+            _texto(conta.agencia),
+            _texto(conta.conta_corrente),
+            _texto(conta.cnpj),
+            ordem,
+        )
+        if conta.id is None:
+            conta.id = _id_por_chave(conn, "contas", "nome", valores[0])
+        if conta.id is not None:
+            if not _existe(conn, "contas", conta.id):
+                raise ValueError(f"A conta '{conta.nome}' não existe mais no banco.")
+            conn.execute(
+                "UPDATE contas SET nome = ?, titulo = ?, descricao = ?, "
+                "agencia = ?, conta_corrente = ?, cnpj = ?, ordem = ? "
+                "WHERE id = ?",
+                (*valores, conta.id),
+            )
+        else:
+            cursor = conn.execute(
+                "INSERT INTO contas (nome, titulo, descricao, agencia, "
+                "conta_corrente, cnpj, ordem) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                valores,
+            )
+            conta.id = int(cursor.lastrowid)
+        conta.row = ordem
 
 
 def _salvar_grupos(conn: sqlite3.Connection, data: ReportData) -> dict[str, int]:
@@ -315,6 +393,7 @@ def _salvar_lotes(
         valores = (
             numero,
             grupo_id,
+            lote.conta_id,
             _decimal_texto(lote.valor),
             _texto(lote.secao) or "Bens em Geral",
             _decimal_texto(lote.valor_avaliado),
@@ -327,16 +406,16 @@ def _salvar_lotes(
             if not _existe(conn, "lotes", lote.id):
                 raise ValueError(f"O lote {numero} não existe mais no banco.")
             conn.execute(
-                "UPDATE lotes SET numero = ?, grupo_id = ?, valor_venda = ?, "
-                "secao = ?, valor_avaliado = ?, descricao_pl = ?, "
-                "observacao = ? WHERE id = ?",
+                "UPDATE lotes SET numero = ?, grupo_id = ?, conta_id = ?, "
+                "valor_venda = ?, secao = ?, valor_avaliado = ?, "
+                "descricao_pl = ?, observacao = ? WHERE id = ?",
                 (*valores, lote.id),
             )
         else:
             cursor = conn.execute(
-                "INSERT INTO lotes (numero, grupo_id, valor_venda, secao, "
-                "valor_avaliado, descricao_pl, observacao) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO lotes (numero, grupo_id, conta_id, valor_venda, "
+                "secao, valor_avaliado, descricao_pl, observacao) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 valores,
             )
             lote.id = int(cursor.lastrowid)
@@ -413,6 +492,7 @@ def salvar_leilao(path: str | Path, data: ReportData) -> ReportData:
 
     with abrir_banco(path) as conn:
         with conn:
+            _salvar_contas(conn, data)
             ids_grupos = _salvar_grupos(conn, data)
             ids_lotes = _salvar_lotes(conn, data, ids_grupos)
             _salvar_bens(conn, data, ids_lotes)
@@ -424,12 +504,33 @@ def salvar_leilao(path: str | Path, data: ReportData) -> ReportData:
                 conn, "lotes", [lote.id for lote in data.lotes if lote.id is not None]
             )
             _apagar_ausentes(
+                conn, "contas", [conta.id for conta in data.contas if conta.id is not None]
+            )
+            _apagar_ausentes(
                 conn, "grupos", [grupo.id for grupo in data.grupos if grupo.id is not None]
             )
             conn.execute(
                 "UPDATE meta SET atualizado_em = ? WHERE id = 1", (_agora(),)
             )
     return carregar_leilao(path)
+
+
+def _carregar_contas(conn: sqlite3.Connection) -> list[Conta]:
+    contas: list[Conta] = []
+    for row in conn.execute("SELECT * FROM contas ORDER BY ordem, nome").fetchall():
+        contas.append(
+            Conta(
+                id=int(row["id"]),
+                nome=row["nome"],
+                titulo=row["titulo"],
+                descricao=row["descricao"],
+                agencia=row["agencia"],
+                conta_corrente=row["conta_corrente"],
+                cnpj=row["cnpj"],
+                row=int(row["ordem"]),
+            )
+        )
+    return contas
 
 
 def _carregar_grupos(conn: sqlite3.Connection) -> list[Group]:
@@ -484,6 +585,7 @@ def _carregar_lotes(conn: sqlite3.Connection) -> list[Lot]:
                 descricao_pl=row["descricao_pl"],
                 observacao=row["observacao"],
                 row=int(row["id"]),
+                conta_id=row["conta_id"],
             )
         )
     return lotes
@@ -533,6 +635,7 @@ def carregar_leilao(path: str | Path) -> ReportData:
     with abrir_banco(path) as conn:
         data = ReportData(
             grupos=_carregar_grupos(conn),
+            contas=_carregar_contas(conn),
             lotes=_carregar_lotes(conn),
         )
         data.bens = _carregar_bens(conn, data.lotes)
