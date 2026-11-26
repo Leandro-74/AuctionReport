@@ -50,11 +50,11 @@ COLUNAS_PRINCIPAIS = [
     "Descrição",
     "Valor",
 ]
-LARGURAS_PRINCIPAIS = [8.43, 10.13, 15.13, 8.43, 47.63, 17.0]
+LARGURAS_PRINCIPAIS = [13.0, 10.13, 20.0, 20.0, 47.63, 17.0]
 LARGURA_G = 7.63
 
 COLUNAS_AUX = ["Tipo de bem", "Código", "Conta Débito", "Descrição", "Valor"]
-LARGURAS_AUX = [8.43, 8.43, 18.88, 47.63, 17.0]
+LARGURAS_AUX = [13.0, 10.13, 20.0, 47.63, 17.0]
 
 LARGURAS_CONTA = [14.38, 14.13, 54.63, 17.5]
 
@@ -151,6 +151,8 @@ def _data(
             cell.fill = fill
         if col == money_col:
             cell.number_format = FORMATO_MOEDA
+        elif isinstance(value, str):
+            cell.number_format = "@"
 
 
 def _setup_page(ws, *, fit: bool = False) -> None:
@@ -168,8 +170,9 @@ def _setup_page(ws, *, fit: bool = False) -> None:
         ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 
 
-def _codigo(valor: str):
-    return int(valor) if valor.isdigit() else valor
+def _codigo(valor: str) -> str:
+    """Mantém o código como texto para não virar notação científica."""
+    return valor.strip()
 
 
 # ---------------------------------------------------------------------------
