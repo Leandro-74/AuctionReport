@@ -31,12 +31,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-copy /Y .env.example dist\.env.example >nul
+copy /Y config.example.json dist\config.example.json >nul
 copy /Y README.md dist\README.md >nul
 copy /Y README.pt-BR.md dist\README.pt-BR.md >nul
 
 powershell -NoProfile -Command ^
-    "Compress-Archive -Path 'dist\AuctionReport.exe','dist\.env.example','dist\README.md','dist\README.pt-BR.md' -DestinationPath 'AuctionReport-windows.zip' -Force"
+    "Compress-Archive -Path 'dist\AuctionReport.exe','dist\config.example.json','dist\README.md','dist\README.pt-BR.md' -DestinationPath 'AuctionReport-windows.zip' -Force"
 
 echo.
 echo Pronto: AuctionReport-windows.zip

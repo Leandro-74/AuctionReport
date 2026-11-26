@@ -48,11 +48,11 @@ jobs:
       - name: Package release files
         shell: pwsh
         run: |
-          Copy-Item .env.example dist/.env.example
+          Copy-Item config.example.json dist/config.example.json
           Copy-Item README.md dist/README.md
           Copy-Item README.pt-BR.md dist/README.pt-BR.md
           Compress-Archive `
-            -Path dist/AuctionReport.exe, dist/.env.example, dist/README.md, dist/README.pt-BR.md `
+            -Path dist/AuctionReport.exe, dist/config.example.json, dist/README.md, dist/README.pt-BR.md `
             -DestinationPath AuctionReport-windows.zip `
             -Force
 
@@ -69,10 +69,14 @@ jobs:
           body: |
             Windows executable for AuctionReport.
 
-            1. Extract `AuctionReport.exe` and `.env.example` to a folder.
-            2. Copy `.env.example` to `.env` and fill in the municipality data.
-            3. Run `AuctionReport.exe`.
+            Download `AuctionReport.exe` and run it. On the first execution, the
+            program asks for the municipality data and saves it in your Windows
+            user profile. Python is not required.
 
-            The executable does not include the `.env` file. Keep your real data only in `.env`.
-          files: AuctionReport-windows.zip
+            The zip contains the executable, the README files and a fictitious
+            configuration example. Real configuration data stays outside the
+            repository and outside the release.
+          files: |
+            dist/AuctionReport.exe
+            AuctionReport-windows.zip
           generate_release_notes: true
