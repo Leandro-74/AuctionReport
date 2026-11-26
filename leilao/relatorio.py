@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import textwrap
 from collections import OrderedDict
 from dataclasses import dataclass
 from decimal import Decimal
@@ -50,11 +51,13 @@ COLUNAS_PRINCIPAIS = [
     "Descrição",
     "Valor",
 ]
-LARGURAS_PRINCIPAIS = [13.0, 10.13, 20.0, 20.0, 47.63, 17.0]
+# Larguras em unidades do Excel; equivalem a 100, 80, 120, 120, 380 e 135 px
+# no Google Sheets.
+LARGURAS_PRINCIPAIS = [14.43, 11.57, 17.29, 17.29, 54.43, 19.43]
 LARGURA_G = 7.63
 
 COLUNAS_AUX = ["Tipo de bem", "Código", "Conta Débito", "Descrição", "Valor"]
-LARGURAS_AUX = [13.0, 10.13, 20.0, 47.63, 17.0]
+LARGURAS_AUX = [14.43, 11.57, 17.29, 54.43, 19.43]
 
 LARGURAS_CONTA = [14.38, 14.13, 54.63, 17.5]
 
@@ -132,6 +135,20 @@ def _header(ws, row: int, colunas: list[str], money_col: int) -> None:
             cell.number_format = FORMATO_MOEDA
 
 
+def _linhas_celula(valor: object, largura: float) -> int:
+    """Estima quantas linhas o texto ocupa na largura informada."""
+    texto = "" if valor is None else str(valor)
+    limite = max(8, int(largura * 0.95))
+    linhas = 0
+    for parte in texto.splitlines() or [""]:
+        linhas += len(textwrap.wrap(parte, width=limite)) or 1
+    return max(1, linhas)
+
+
+def _altura_texto(valor: object, largura: float) -> float:
+    return 15.75 * _linhas_celula(valor, largura)
+
+
 def _data(
     ws,
     row: int,
@@ -139,6 +156,7 @@ def _data(
     money_col: int,
     *,
     zebra: bool = False,
+    larguras: list[float] | None = None,
 ) -> None:
     """Linha de dados do modelo: fonte 11, borda fina e quebra de texto."""
     fill = PatternFill("solid", fgColor=CINZA_ZEBRA) if zebra else None
@@ -153,6 +171,12 @@ def _data(
             cell.number_format = FORMATO_MOEDA
         elif isinstance(value, str):
             cell.number_format = "@"
+    if larguras is not None:
+        linhas = max(
+            _linhas_celula(valor, largura)
+            for valor, largura in zip(valores, larguras)
+        )
+        ws.row_dimensions[row].height = max(15.75, 15.75 * linhas)
 
 
 def _setup_page(ws, *, fit: bool = False) -> None:
@@ -175,6 +199,14 @@ def _codigo(valor: str) -> str:
     return valor.strip()
 
 
+def _conta(valor: str) -> str:
+    """Corta a sequência de zeros à direita, mantendo um zero."""
+    codigo = valor.strip()
+    if codigo.isdigit() and codigo.endswith("0"):
+        return codigo.rstrip("0") + "0"
+    return codigo
+
+
 # ---------------------------------------------------------------------------
 # Abas principais (por grupo/secretaria)
 # ---------------------------------------------------------------------------
@@ -194,6 +226,9 @@ def _write_group_sheet(
     _merge(ws, 1, grupo.titulo, FONTE_TITULO, fill=CINZA, wrap=False, height=21.75)
     subtitulo = f"{grupo.subtitulo} ({format_lots(lotes)})"
     _merge(ws, 2, subtitulo, FONTE_TITULO, fill=CINZA, height=None)
+    ws.row_dimensions[2].height = _altura_texto(
+        subtitulo, sum(LARGURAS_PRINCIPAIS)
+    )
     ws.row_dimensions[3].height = 21.75
 
     _merge(
@@ -256,12 +291,16 @@ def _write_group_sheet(
     row = 10
     for secao, resultados_secao in secoes.items():
         lotes_secao = [r.lote for r in resultados_secao]
+        titulo_secao = f"{secao} ({format_lots(lotes_secao)})"
         _merge(
             ws,
             row,
-            f"{secao} ({format_lots(lotes_secao)})",
+            titulo_secao,
             FONTE_SECAO,
             fill=CINZA,
+        )
+        ws.row_dimensions[row].height = _altura_texto(
+            titulo_secao, sum(LARGURAS_PRINCIPAIS)
         )
         row += 1
         _header(ws, row, COLUNAS_PRINCIPAIS, 6)
@@ -275,13 +314,14 @@ def _write_group_sheet(
                     [
                         bem.tipo or "Bens Móveis",
                         _codigo(bem.codigo),
-                        _codigo(bem.conta_credito),
-                        _codigo(bem.conta_debito),
+                        _conta(bem.conta_credito),
+                        _conta(bem.conta_debito),
                         bem.descricao,
                         float(resultado.valores[indice]),
                     ],
                     6,
                     zebra=zebra,
+                    larguras=LARGURAS_PRINCIPAIS,
                 )
                 zebra = not zebra
                 row += 1
@@ -510,6 +550,9 @@ def _write_view_sheet(wb, spec: ViewSpec, usados: set[str]) -> None:
         wrap=True,
         end_col=end_col,
     )
+    ws.row_dimensions[2].height = _altura_texto(
+        spec.subtitulo, sum(larguras[:end_col])
+    )
     ws.row_dimensions[3].height = 21.75
 
     _header(ws, 4, colunas, money_col)
@@ -520,8 +563,8 @@ def _write_view_sheet(wb, spec: ViewSpec, usados: set[str]) -> None:
             valores = [
                 item.bem.tipo or "Bens Móveis",
                 _codigo(item.bem.codigo),
-                _codigo(item.bem.conta_credito),
-                _codigo(item.bem.conta_debito),
+                _conta(item.bem.conta_credito),
+                _conta(item.bem.conta_debito),
                 item.bem.descricao,
                 float(item.valor),
             ]
@@ -529,11 +572,18 @@ def _write_view_sheet(wb, spec: ViewSpec, usados: set[str]) -> None:
             valores = [
                 item.bem.tipo or "Bens Móveis",
                 _codigo(item.bem.codigo),
-                _codigo(item.bem.conta_debito),
+                _conta(item.bem.conta_debito),
                 item.bem.descricao,
                 float(item.valor),
             ]
-        _data(ws, row, valores, money_col, zebra=zebra)
+        _data(
+            ws,
+            row,
+            valores,
+            money_col,
+            zebra=zebra,
+            larguras=larguras,
+        )
         zebra = not zebra
         row += 1
 

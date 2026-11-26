@@ -65,12 +65,12 @@ class ExportacaoTests(unittest.TestCase):
         wb = load_workbook(resultado)
 
         grupo = wb["Relatório Bens da Prefeitura"]
-        self.assertEqual(grupo.column_dimensions["A"].width, 13.0)
-        self.assertEqual(grupo.column_dimensions["B"].width, 10.13)
-        self.assertEqual(grupo.column_dimensions["C"].width, 20.0)
-        self.assertEqual(grupo.column_dimensions["D"].width, 20.0)
-        self.assertEqual(grupo.column_dimensions["E"].width, 47.63)
-        self.assertEqual(grupo.column_dimensions["F"].width, 17.0)
+        self.assertEqual(grupo.column_dimensions["A"].width, 14.43)
+        self.assertEqual(grupo.column_dimensions["B"].width, 11.57)
+        self.assertEqual(grupo.column_dimensions["C"].width, 17.29)
+        self.assertEqual(grupo.column_dimensions["D"].width, 17.29)
+        self.assertEqual(grupo.column_dimensions["E"].width, 54.43)
+        self.assertEqual(grupo.column_dimensions["F"].width, 19.43)
         self.assertEqual(grupo["A11"].fill.fgColor.rgb, "FFD9D9D9")
         self.assertEqual(grupo["A11"].border.left.color.rgb, "FF999999")
         self.assertEqual(grupo["A13"].border.bottom.color.rgb, "FF999999")
@@ -80,11 +80,11 @@ class ExportacaoTests(unittest.TestCase):
         )
 
         auxiliar = wb["Relatório Mobiliário em Geral"]
-        self.assertEqual(auxiliar.column_dimensions["A"].width, 13.0)
-        self.assertEqual(auxiliar.column_dimensions["B"].width, 10.13)
-        self.assertEqual(auxiliar.column_dimensions["C"].width, 20.0)
-        self.assertEqual(auxiliar.column_dimensions["D"].width, 47.63)
-        self.assertEqual(auxiliar.column_dimensions["E"].width, 17.0)
+        self.assertEqual(auxiliar.column_dimensions["A"].width, 14.43)
+        self.assertEqual(auxiliar.column_dimensions["B"].width, 11.57)
+        self.assertEqual(auxiliar.column_dimensions["C"].width, 17.29)
+        self.assertEqual(auxiliar.column_dimensions["D"].width, 54.43)
+        self.assertEqual(auxiliar.column_dimensions["E"].width, 19.43)
         self.assertNotEqual(
             auxiliar["A5"].fill.fgColor.rgb, "FFF2F2F2"
         )
@@ -98,12 +98,24 @@ class ExportacaoTests(unittest.TestCase):
         self.assertEqual(grupo["B12"].value, "1")
         self.assertEqual(grupo["B12"].data_type, "s")
         self.assertEqual(grupo["B12"].number_format, "@")
-        self.assertEqual(grupo["C12"].value, "1231102010000000000")
+        self.assertEqual(grupo["C12"].value, "1231102010")
         self.assertEqual(grupo["C12"].data_type, "s")
         self.assertEqual(grupo["C12"].number_format, "@")
-        self.assertEqual(grupo["D12"].value, "1231104050000000000")
+        self.assertEqual(grupo["D12"].value, "1231104050")
         self.assertEqual(grupo["D12"].data_type, "s")
         self.assertEqual(grupo["D12"].number_format, "@")
+        wb.close()
+
+    def test_altura_da_linha_acompanha_a_descricao(self):
+        data = _data()
+        data.bens[0].descricao = "PALAVRA " * 40
+        data.resultados = []
+        data.issues = []
+        build_results(data)
+        resultado = exportar(data, self.destino, nome_base="altura")
+        wb = load_workbook(resultado)
+        grupo = wb["Relatório Bens da Prefeitura"]
+        self.assertGreater(grupo.row_dimensions[12].height, 15.75 * 2)
         wb.close()
 
     def test_nao_exporta_venda_nao_realizada(self):
