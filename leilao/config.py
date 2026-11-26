@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+def _base_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[1]
+
+
+BASE_DIR = _base_dir()
+load_dotenv(BASE_DIR / ".env")
 
 
 def _env(name: str, default: str = "") -> str:

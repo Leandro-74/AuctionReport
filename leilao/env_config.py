@@ -7,8 +7,10 @@ from pathlib import Path
 
 from dotenv import dotenv_values, set_key
 
-CAMINHO_ENV = Path(__file__).resolve().parents[1] / ".env"
-CAMINHO_EXEMPLO = Path(__file__).resolve().parents[1] / ".env.example"
+from .config import BASE_DIR
+
+CAMINHO_ENV = BASE_DIR / ".env"
+CAMINHO_EXEMPLO = BASE_DIR / ".env.example"
 
 CAMPOS = (
     ("AUCTIONREPORT_MUNICIPIO", "Nome do município", "MUNICÍPIO DE EXEMPLO"),

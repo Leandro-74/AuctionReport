@@ -1,0 +1,78 @@
+name: Build Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Build executable
+        run: >
+          python -m PyInstaller
+          --noconfirm
+          --clean
+          --onefile
+          --console
+          --name AuctionReport
+          --icon assets/logo.ico
+          --collect-all pdfplumber
+          --collect-all pdfminer
+          --collect-all pypdfium2
+          --collect-all rich
+          main.py
+
+      - name: Package release files
+        shell: pwsh
+        run: |
+          Copy-Item .env.example dist/.env.example
+          Copy-Item README.md dist/README.md
+          Copy-Item README.pt-BR.md dist/README.pt-BR.md
+          Compress-Archive `
+            -Path dist/AuctionReport.exe, dist/.env.example, dist/README.md, dist/README.pt-BR.md `
+            -DestinationPath AuctionReport-windows.zip `
+            -Force
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AuctionReport-windows
+          path: AuctionReport-windows.zip
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: AuctionReport ${{ github.ref_name }}
+          body: |
+            Windows executable for AuctionReport.
+
+            1. Extract `AuctionReport.exe` and `.env.example` to a folder.
+            2. Copy `.env.example` to `.env` and fill in the municipality data.
+            3. Run `AuctionReport.exe`.
+
+            The executable does not include the `.env` file. Keep your real data only in `.env`.
+          files: AuctionReport-windows.zip
+          generate_release_notes: true
