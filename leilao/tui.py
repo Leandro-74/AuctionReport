@@ -936,12 +936,10 @@ def _valores_configuracao() -> dict[str, str]:
 def _reiniciar() -> None:
     try:
         if getattr(sys, "frozen", False):
-            os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
+            comando = [sys.executable, *sys.argv[1:]]
         else:
-            os.execv(
-                sys.executable,
-                [sys.executable, "-m", "leilao", *sys.argv[1:]],
-            )
+            comando = [sys.executable, "-m", "leilao", *sys.argv[1:]]
+        subprocess.Popen(comando)
     except OSError as exc:
         console.print(
             Panel(
@@ -952,6 +950,8 @@ def _reiniciar() -> None:
             )
         )
         _pause()
+        return
+    raise SystemExit(0)
 
 
 def _assistente_inicial() -> bool:
