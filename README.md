@@ -337,8 +337,10 @@ The template layout is reproduced with:
 - one account sheet per account used; lots that share an account share the sheet and
   the total;
 - Calibri/Arial fonts, gray `D9D9D9` headers, alternating white and `F2F2F2` rows,
-  thin `999999` borders, `R$ #,##0.00` format, column widths and margins equal to the
-  template.
+  thin `999999` borders, `R$ #,##0.00` format and template margins;
+- title and code columns wide enough to show headers and 19-digit account codes in
+  Google Sheets;
+- codes written as text, preserving leading zeros and avoiding scientific notation.
 
 Auxiliary sheets are created automatically from the data:
 

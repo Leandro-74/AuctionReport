@@ -335,8 +335,11 @@ Aparência reproduzida do modelo:
 - uma aba por conta usada; lotes que compartilham a mesma conta dividem a aba e o
   total;
 - fontes Calibri/Arial, cabeçalhos cinza `D9D9D9`, linhas alternadas em branco e
-  `F2F2F2`, bordas finas `999999`, formato `R$ #,##0.00`, larguras de coluna e
-  margens iguais às do modelo.
+  `F2F2F2`, bordas finas `999999`, formato `R$ #,##0.00` e margens do modelo;
+- colunas de título e de código largas o suficiente para exibir os cabeçalhos e as
+  contas de 19 dígitos no Google Planilhas;
+- códigos gravados como texto, preservando zeros à esquerda e evitando notação
+  científica.
 
 As abas auxiliares são criadas automaticamente conforme os dados:
 
