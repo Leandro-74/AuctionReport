@@ -117,7 +117,11 @@ class AtualizacaoTests(unittest.TestCase):
         self.assertEqual(len(plano.novos_lotes), 1)
         self.assertEqual(plano.novos_lotes[0].numero, "02")
         self.assertEqual(plano.novos_lotes[0].grupo, "Prefeitura")
-        self.assertEqual(plano.novos_lotes[0].valor, Decimal("50.00"))
+        self.assertEqual(plano.novos_lotes[0].valor, Decimal("0.00"))
+        self.assertFalse(plano.novos_lotes[0].valor_informado)
+        self.assertEqual(
+            plano.novos_lotes[0].valor_avaliado, Decimal("50.00")
+        )
 
         plano.aplicar(data)
         self.assertIn("02", [lote.numero for lote in data.lotes])

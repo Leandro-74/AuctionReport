@@ -51,6 +51,7 @@ class Lot:
     row: int = 0
     id: int | None = None
     conta_id: int | None = None
+    valor_informado: bool = True
 
     @property
     def numero_int(self) -> int:

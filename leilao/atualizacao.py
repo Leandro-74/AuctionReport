@@ -233,7 +233,8 @@ def planejar_atualizacao(
         plano.novos_lotes.append(
             Lot(
                 numero=numero,
-                valor=law.valor_avaliado or Decimal("0.00"),
+                valor=Decimal("0.00"),
+                valor_informado=False,
                 grupo=grupo.nome,
                 secao=suggest_section(law),
                 valor_avaliado=law.valor_avaliado,

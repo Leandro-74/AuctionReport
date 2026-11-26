@@ -82,6 +82,9 @@ class ImportacaoTests(unittest.TestCase):
         self.assertEqual(len(bens), 1)
         self.assertEqual(bens[0].lote, "01")
         self.assertEqual(len(lotes), 1)
+        self.assertFalse(lotes[0].valor_informado)
+        self.assertEqual(lotes[0].valor, Decimal("0.00"))
+        self.assertEqual(lotes[0].valor_avaliado, Decimal("100.00"))
         self.assertFalse(
             any("mais de um bem" in issue.mensagem for issue in issues)
         )

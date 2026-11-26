@@ -8,6 +8,7 @@ import shutil
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 from .entrada import build_results, normalize_lot, normalize_source
@@ -394,7 +395,7 @@ def _salvar_lotes(
             numero,
             grupo_id,
             lote.conta_id,
-            _decimal_texto(lote.valor),
+            _decimal_texto(lote.valor) if lote.valor_informado else "",
             _texto(lote.secao) or "Bens em Geral",
             _decimal_texto(lote.valor_avaliado),
             _texto(lote.descricao_pl),
@@ -563,8 +564,13 @@ def _carregar_lotes(conn: sqlite3.Connection) -> list[Lot]:
         "ORDER BY l.id"
     ).fetchall()
     for row in rows:
+        valor_informado = row["valor_venda"] not in (None, "")
         try:
-            valor = parse_money(row["valor_venda"])
+            valor = (
+                parse_money(row["valor_venda"])
+                if valor_informado
+                else Decimal("0.00")
+            )
             avaliado = (
                 parse_money(row["valor_avaliado"])
                 if row["valor_avaliado"] not in (None, "")
@@ -586,6 +592,7 @@ def _carregar_lotes(conn: sqlite3.Connection) -> list[Lot]:
                 observacao=row["observacao"],
                 row=int(row["id"]),
                 conta_id=row["conta_id"],
+                valor_informado=valor_informado,
             )
         )
     return lotes

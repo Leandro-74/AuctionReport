@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from decimal import Decimal
 from pathlib import Path
 
 from .config import AGENCIA, MUNICIPIO
@@ -134,10 +135,15 @@ def editar_lote(
 ) -> Lot:
     lote = encontrar_lote(data, numero)
     if valor is not None:
-        try:
-            lote.valor = parse_money(valor)
-        except ValueError as exc:
-            raise EdicaoError(f"Valor inválido: {valor!r}.") from exc
+        if isinstance(valor, str) and not valor.strip():
+            lote.valor = Decimal("0.00")
+            lote.valor_informado = False
+        else:
+            try:
+                lote.valor = parse_money(valor)
+                lote.valor_informado = True
+            except ValueError as exc:
+                raise EdicaoError(f"Valor inválido: {valor!r}.") from exc
     if grupo is not None and grupo.strip():
         nomes = {norm(g.nome) for g in data.grupos}
         if norm(grupo) not in nomes:
@@ -270,7 +276,7 @@ def adicionar_lote(
     data: ReportData,
     *,
     numero: str,
-    valor: object,
+    valor: object | None = None,
     grupo: str,
     secao: str,
     observacao: str = "",
@@ -283,10 +289,16 @@ def adicionar_lote(
         raise EdicaoError(f"Já existe um lote {numero}.")
     if not any(norm(g.nome) == norm(grupo) for g in data.grupos):
         raise EdicaoError(f"Grupo '{grupo}' não cadastrado.")
-    try:
-        valor_dec = parse_money(valor)
-    except ValueError as exc:
-        raise EdicaoError(f"Valor inválido: {valor!r}.") from exc
+    valor_informado = valor not in (None, "")
+    if isinstance(valor, str) and not valor.strip():
+        valor_informado = False
+    if valor_informado:
+        try:
+            valor_dec = parse_money(valor)
+        except ValueError as exc:
+            raise EdicaoError(f"Valor inválido: {valor!r}.") from exc
+    else:
+        valor_dec = Decimal("0.00")
     if conta_id is not None and not any(
         conta.id == conta_id for conta in data.contas
     ):
@@ -294,6 +306,7 @@ def adicionar_lote(
     lote = Lot(
         numero=numero,
         valor=valor_dec,
+        valor_informado=valor_informado,
         grupo=grupo.strip(),
         secao=secao.strip() or "Bens em Geral",
         observacao=observacao.strip(),

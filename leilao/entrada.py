@@ -26,7 +26,7 @@ from .config import (
     SUBTITULO_SAUDE,
 )
 from .models import Asset, Group, Issue, LawLot, Lot, LotResult, ReportData, norm
-from .money import format_brl, parse_money, distribute
+from .money import parse_money, distribute
 from .pdfs import PdfError, parse_asset_report, parse_law
 
 CINZA = "FFD9D9D9"
@@ -256,8 +256,9 @@ LEIA_ME = [
         False,
     ),
     (
-        "2. Aba LOTES: cada linha é um lote. Preencha 'Valor da venda' com o valor arrematado. "
-        "Enquanto o leilão não acontece, o valor avaliado do projeto de lei é usado como referência.",
+        "2. Aba LOTES: cada linha é um lote. Preencha 'Valor da venda' com o valor "
+        "arrematado quando o leilão acontecer; pode ficar vazio até lá. O valor avaliado "
+        "do projeto de lei é apenas o lance inicial de referência.",
         False,
     ),
     (
@@ -379,7 +380,7 @@ def write_entrada(
     for row, lote in enumerate(sorted(lotes, key=lambda l: l.numero_int), start=2):
         values = [
             lote.numero,
-            float(lote.valor),
+            float(lote.valor) if lote.valor_informado else None,
             lote.grupo,
             lote.secao,
             float(lote.valor_avaliado) if lote.valor_avaliado is not None else None,
@@ -663,7 +664,8 @@ def importar_pdfs(
             lotes.append(
                 Lot(
                     numero=law.numero,
-                    valor=law.valor_avaliado or Decimal("0.00"),
+                    valor=Decimal("0.00"),
+                    valor_informado=False,
                     grupo=grupo.nome,
                     secao=suggest_section(law),
                     valor_avaliado=law.valor_avaliado,
@@ -781,10 +783,12 @@ def _read_lotes(ws) -> tuple[list[Lot], list[Issue]]:
                     )
                 )
         valor_bruto = row.get("valor da venda")
-        valor = None
+        valor = Decimal("0.00")
+        valor_informado = False
         if valor_bruto not in (None, ""):
             try:
                 valor = parse_money(valor_bruto)
+                valor_informado = True
             except ValueError:
                 issues.append(
                     Issue(
@@ -795,27 +799,6 @@ def _read_lotes(ws) -> tuple[list[Lot], list[Issue]]:
                     )
                 )
                 continue
-        if valor is None and valor_avaliado is not None:
-            valor = valor_avaliado
-            issues.append(
-                Issue(
-                    "aviso",
-                    f"Lote {numero} sem valor da venda; usando o valor avaliado "
-                    f"{format_brl(valor_avaliado)}.",
-                    linha=int(row["_linha"]),
-                    aba="Lotes",
-                )
-            )
-        if valor is None:
-            issues.append(
-                Issue(
-                    "erro",
-                    f"Lote {numero} sem valor da venda.",
-                    linha=int(row["_linha"]),
-                    aba="Lotes",
-                )
-            )
-            continue
         grupo = text_cell(row.get("grupo")).strip()
         if not grupo:
             issues.append(
@@ -842,6 +825,7 @@ def _read_lotes(ws) -> tuple[list[Lot], list[Issue]]:
             Lot(
                 numero=numero,
                 valor=valor,
+                valor_informado=valor_informado,
                 grupo=grupo,
                 secao=secao,
                 valor_avaliado=valor_avaliado,
@@ -966,6 +950,16 @@ def build_results(data: ReportData) -> None:
                     aba="Lotes",
                 )
             )
+        if not lote.valor_informado:
+            data.issues.append(
+                Issue(
+                    "erro",
+                    f"Lote {lote.numero} está sem valor de venda.",
+                    linha=lote.row,
+                    aba="Lotes",
+                )
+            )
+            continue
         bens_lote = sorted(por_lote[lote.numero], key=lambda b: b.row)
         if not bens_lote:
             data.issues.append(

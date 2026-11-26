@@ -19,6 +19,7 @@ from leilao.banco import (
 from leilao.edicao import (
     adicionar_conta,
     editar_grupo,
+    editar_lote,
     encontrar_conta,
     mover_bens,
     remover_bens,
@@ -181,6 +182,24 @@ class BancoTests(unittest.TestCase):
         self.assertEqual(recarregado.contas, [])
         self.assertTrue(all(lote.conta_id is None for lote in recarregado.lotes))
         self.assertFalse(recarregado.erros, [str(e) for e in recarregado.erros])
+
+    def test_lote_pode_ficar_sem_valor_e_receber_depois(self):
+        data = carregar_leilao(self.db)
+        editar_lote(data, "01", valor="")
+        self.assertFalse(
+            next(lote for lote in data.lotes if lote.numero == "01").valor_informado
+        )
+        data = salvar_leilao(self.db, data)
+        self.assertTrue(
+            any("sem valor de venda" in issue.mensagem for issue in data.erros)
+        )
+
+        editar_lote(data, "01", valor="150,00")
+        data = salvar_leilao(self.db, data)
+        self.assertTrue(
+            next(lote for lote in data.lotes if lote.numero == "01").valor_informado
+        )
+        self.assertFalse(data.erros, [str(e) for e in data.erros])
 
     def test_remove_bem_e_lote(self):
         carregado = carregar_leilao(self.db)
