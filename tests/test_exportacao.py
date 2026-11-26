@@ -46,6 +46,34 @@ class ExportacaoTests(unittest.TestCase):
         self.assertIn("Relatório Bens da Prefeitura", wb.sheetnames)
         wb.close()
 
+    def test_estilo_do_modelo(self):
+        resultado = exportar(_data(), self.destino, nome_base="estilo")
+        wb = load_workbook(resultado)
+
+        grupo = wb["Relatório Bens da Prefeitura"]
+        self.assertEqual(grupo.column_dimensions["B"].width, 10.13)
+        self.assertEqual(grupo.column_dimensions["C"].width, 15.13)
+        self.assertEqual(grupo.column_dimensions["D"].width, 8.43)
+        self.assertEqual(grupo.column_dimensions["E"].width, 47.63)
+        self.assertEqual(grupo.column_dimensions["F"].width, 17.0)
+        self.assertEqual(grupo["A11"].fill.fgColor.rgb, "FFD9D9D9")
+        self.assertEqual(grupo["A11"].border.left.color.rgb, "FF999999")
+        self.assertEqual(grupo["A13"].border.bottom.color.rgb, "FF999999")
+        self.assertEqual(grupo["A13"].fill.fgColor.rgb, "FFF2F2F2")
+        self.assertNotEqual(
+            grupo["A12"].fill.fgColor.rgb, "FFF2F2F2"
+        )
+
+        auxiliar = wb["Relatório Mobiliário em Geral"]
+        self.assertEqual(auxiliar.column_dimensions["C"].width, 18.88)
+        self.assertEqual(auxiliar.column_dimensions["D"].width, 47.63)
+        self.assertEqual(auxiliar.column_dimensions["E"].width, 17.0)
+        self.assertNotEqual(
+            auxiliar["A5"].fill.fgColor.rgb, "FFF2F2F2"
+        )
+        self.assertEqual(auxiliar["A6"].fill.fgColor.rgb, "FFF2F2F2")
+        wb.close()
+
     def test_nao_exporta_venda_nao_realizada(self):
         data = _data()
         data.venda_realizada = False

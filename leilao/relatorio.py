@@ -29,14 +29,16 @@ from .money import format_brl
 # ---------------------------------------------------------------------------
 
 CINZA = "FFD9D9D9"
+CINZA_ZEBRA = "FFF2F2F2"
 VERDE = "FFE2EFDA"
 VERMELHO = "FFFCE4D6"
-BORDA_FINA = Side(style="thin")
+CINZA_BORDA = "FF999999"
+BORDA_FINA = Side(style="thin", color=CINZA_BORDA)
 BORDA = Border(left=BORDA_FINA, right=BORDA_FINA, top=BORDA_FINA, bottom=BORDA_FINA)
 FONTE_TITULO = Font(name="Calibri", size=13, bold=True)
 FONTE_SECAO = Font(name="Calibri", size=13, bold=True)
-FONTE_CONTA = Font(name="Arial", size=10)
-FONTE_CONTA_NEGRITO = Font(name="Arial", size=10, bold=True)
+FONTE_CONTA = Font(name="Arial", size=11)
+FONTE_CONTA_NEGRITO = Font(name="Arial", size=11, bold=True)
 FONTE_DADOS = Font(name="Calibri", size=11)
 FORMATO_MOEDA = '[$R$ -416]#,##0.00'
 
@@ -48,7 +50,7 @@ COLUNAS_PRINCIPAIS = [
     "Descrição",
     "Valor",
 ]
-LARGURAS_PRINCIPAIS = [8.43, 10.13, 15.13, 15.13, 47.63, 17.0]
+LARGURAS_PRINCIPAIS = [8.43, 10.13, 15.13, 8.43, 47.63, 17.0]
 LARGURA_G = 7.63
 
 COLUNAS_AUX = ["Tipo de bem", "Código", "Conta Débito", "Descrição", "Valor"]
@@ -130,13 +132,23 @@ def _header(ws, row: int, colunas: list[str], money_col: int) -> None:
             cell.number_format = FORMATO_MOEDA
 
 
-def _data(ws, row: int, valores: list[object], money_col: int) -> None:
+def _data(
+    ws,
+    row: int,
+    valores: list[object],
+    money_col: int,
+    *,
+    zebra: bool = False,
+) -> None:
     """Linha de dados do modelo: fonte 11, borda fina e quebra de texto."""
+    fill = PatternFill("solid", fgColor=CINZA_ZEBRA) if zebra else None
     for col, value in enumerate(valores, start=1):
         cell = ws.cell(row=row, column=col, value=value)
         cell.font = FONTE_DADOS
         cell.border = BORDA
         cell.alignment = Alignment(wrap_text=True)
+        if fill is not None:
+            cell.fill = fill
         if col == money_col:
             cell.number_format = FORMATO_MOEDA
 
@@ -251,6 +263,7 @@ def _write_group_sheet(
         row += 1
         _header(ws, row, COLUNAS_PRINCIPAIS, 6)
         row += 1
+        zebra = False
         for resultado in resultados_secao:
             for indice, bem in enumerate(resultado.bens):
                 _data(
@@ -265,7 +278,9 @@ def _write_group_sheet(
                         float(resultado.valores[indice]),
                     ],
                     6,
+                    zebra=zebra,
                 )
+                zebra = not zebra
                 row += 1
         row += 1
 
@@ -496,6 +511,7 @@ def _write_view_sheet(wb, spec: ViewSpec, usados: set[str]) -> None:
 
     _header(ws, 4, colunas, money_col)
     row = 5
+    zebra = False
     for item in spec.itens:
         if spec.completo:
             valores = [
@@ -514,7 +530,8 @@ def _write_view_sheet(wb, spec: ViewSpec, usados: set[str]) -> None:
                 item.bem.descricao,
                 float(item.valor),
             ]
-        _data(ws, row, valores, money_col)
+        _data(ws, row, valores, money_col, zebra=zebra)
+        zebra = not zebra
         row += 1
 
     _setup_page(ws)
