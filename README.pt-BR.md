@@ -79,6 +79,9 @@ cd AuctionReport
 Se o script não estiver executável, use `bash instalar.sh` ou execute antes
 `chmod +x instalar.sh iniciar.sh testar.sh`.
 
+Para abrir o seletor nativo de arquivos, instale `zenity` (GNOME) ou `kdialog` (KDE).
+Sem nenhum deles, a TUI continua aceitando caminhos digitados ou arrastados.
+
 ### Executável para Windows
 
 Um executável independente para Windows está disponível na página de
@@ -168,9 +171,11 @@ Depois de abrir um leilão, o painel de edição mostra:
 - lote a lote: valor, soma dos bens e status;
 - avisos e erros.
 
-Quando a TUI pedir um arquivo ou uma pasta, arraste para o terminal ou digite/cole o
-caminho. Aspas e espaços escapados são tratados automaticamente. Pressione Enter em um
-arquivo opcional para pular.
+Quando a TUI pedir um arquivo ou uma pasta, arraste para o terminal, digite/cole o
+caminho ou pressione Enter para abrir o seletor nativo do sistema: Explorer no
+Windows, `zenity`/`kdialog` no Linux e o seletor nativo no macOS. Aspas e espaços
+escapados são tratados automaticamente. Em arquivos opcionais, digite `-` para pular;
+quando não houver seletor gráfico, Enter em branco também pula.
 
 ## Pasta do leilão
 
@@ -529,6 +534,7 @@ AuctionReport/
     edicao.py       movimentação e edição de bens/lotes/grupos
     relatorio.py    geração do Excel no formato do modelo
     exportacao.py   fluxo de exportação XLSX
+    dialogos.py     seletores nativos de arquivos e pastas
     tui.py          interface TUI e entrada de caminhos
     cli.py          linha de comando
   tests/
@@ -544,6 +550,7 @@ AuctionReport/
     test_config_store.py
     test_importacao.py
     test_tui.py
+    test_dialogos.py
     test_integracao.py
   main.py                      ponto de entrada do executável
   build_windows.bat            geração local do executável Windows

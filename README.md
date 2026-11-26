@@ -77,6 +77,9 @@ cd AuctionReport
 If the script is not executable, run it with `bash instalar.sh` or use
 `chmod +x instalar.sh iniciar.sh testar.sh` first.
 
+To open the native file picker, install `zenity` (GNOME) or `kdialog` (KDE).
+Without either, the TUI keeps accepting typed or dragged paths.
+
 ### Windows executable
 
 A standalone Windows executable is available in the
@@ -168,9 +171,11 @@ After opening an auction, the editing panel shows:
 - lot by lot: value, sum of assets and status;
 - warnings and errors.
 
-When the TUI asks for a file or folder, drag it into the terminal or type/paste the
-path. Quotes and escaped spaces are handled automatically. Press Enter on an optional
-file to skip it.
+When the TUI asks for a file or folder, drag it into the terminal, type/paste the
+path, or press Enter to open the system file picker: Explorer on Windows,
+`zenity`/`kdialog` on Linux, and the native chooser on macOS. Quotes and escaped
+spaces are handled automatically. On optional files, type `-` to skip; when no
+graphical picker is available, an empty Enter also skips.
 
 ## Auction folder
 
@@ -530,6 +535,7 @@ AuctionReport/
     edicao.py       asset, lot and group editing
     relatorio.py    final Excel generation in the template layout
     exportacao.py   XLSX export workflow
+    dialogos.py     native file and folder pickers
     tui.py          TUI and path input
     cli.py          command line
   tests/
@@ -545,6 +551,7 @@ AuctionReport/
     test_config_store.py
     test_importacao.py
     test_tui.py
+    test_dialogos.py
     test_integracao.py
   main.py                      entry point for the executable
   build_windows.bat            local Windows executable build
